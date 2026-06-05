@@ -1,0 +1,126 @@
+{
+  "skill_name": "paper-reading",
+  "version": "0.2.0",
+  "description": "学术论文证据抽取。基于 Keshav 三遍阅读法 + PICO 框架 + AlpaPICO ICL 策略",
+
+  "pass_thresholds": {
+    "pass1": {
+      "proceed_ratio_min": 0.60,
+      "confidence_levels": ["high", "medium", "low"],
+      "default_verdict": "proceed_to_pass2"
+    },
+    "pass2": {
+      "evidence_complete_ratio_min": 0.80,
+      "confidence_levels": ["high", "medium", "low"],
+      "required_fields": ["population", "intervention", "method"],
+      "optional_fields": ["comparator", "outcome", "key_finding_2", "key_finding_3"]
+    },
+    "pass3": {
+      "enabled": false,
+      "trigger_condition": "extraction_confidence=high AND user_flagged=true"
+    }
+  },
+
+  "llm_config": {
+    "pass1_prompt_template": "hooks.md#hook_extract_pass1",
+    "pass2_prompt_template": "hooks.md#hook_extract_pass2",
+    "output_format": "json",
+    "temperature": 0.1,
+    "max_tokens": 2048,
+    "self_consistency": {
+      "enabled": false,
+      "rounds": 3,
+      "note": "P1 实施"
+    }
+  },
+
+  "channels": {
+    "priority_order": ["abstract_only", "arxiv_pdf", "arxiv_ar5iv", "unpaywall", "carsi"],
+    "abstract_only": {
+      "enabled": true,
+      "min_abstract_length": 50,
+      "placeholder_patterns": [
+        "Available online only",
+        "subscription required",
+        "Abstract not available"
+      ]
+    },
+    "arxiv_pdf": {
+      "enabled": true,
+      "script": "scripts/fetch_arxiv.py",
+      "timeout_seconds": 30,
+      "min_file_size_kb": 1,
+      "output_dir": "data/fulltext"
+    },
+    "arxiv_ar5iv": {
+      "enabled": true,
+      "url_template": "https://ar5iv.labs.arxiv.org/html/{arxiv_id}",
+      "note": "fallback when PDF parser unavailable"
+    },
+    "unpaywall": {
+      "enabled": false,
+      "api_url": "https://api.unpaywall.org/v2/{doi}",
+      "note": "P1 实施"
+    },
+    "carsi": {
+      "enabled": false,
+      "note": "P2 实施, manual browser download"
+    }
+  },
+
+  "output_schema": {
+    "evidence_table_columns": 22,
+    "schema_reference": "artifacts.md",
+    "required_files": [
+      "evidence_table.csv",
+      "evidence_audit.md",
+      "pending_fulltext.csv",
+      "reading_summary.md"
+    ],
+    "conditional_files": [
+      "low_confidence_evidence.csv"
+    ]
+  },
+
+  "quality_gates": {
+    "gate1_pass1_proceed_ratio": {
+      "threshold": 0.60,
+      "description": "Pass 1 proceed_to_pass2 比例"
+    },
+    "gate2_pass2_complete_ratio": {
+      "threshold": 0.80,
+      "description": "Pass 2 evidence 完整抽取率"
+    },
+    "gate3_cross_file_integrity": {
+      "threshold": 1.00,
+      "description": "evidence + pending + low_confidence = include 总数"
+    }
+  },
+
+  "p0_boundaries": {
+    "do": [
+      "Pass 1 五问 + Pass 2 PICO，两层全部走通",
+      "arXiv 论文走 PDF/ar5iv 全文抽取",
+      "无 abstract 论文打 pending，不硬抽",
+      "review 类标记 qualitative_only=true"
+    ],
+    "dont": [
+      "Pass 3 批量跑",
+      "Self-consistency 多轮投票",
+      "retraction check",
+      "figure/table 结构化抽取",
+      "citation graph 分析"
+    ]
+  },
+
+  "dryrun_baseline": {
+    "date": "2026-05-08",
+    "samples": 6,
+    "pass1_proceed": 6,
+    "pass2_complete": 5,
+    "pass2_low_confidence": 1,
+    "pass1_proceed_ratio": 1.00,
+    "pass2_complete_ratio": 0.833,
+    "quality_gate_passed": true
+  }
+}

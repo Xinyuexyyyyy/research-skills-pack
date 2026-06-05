@@ -1,0 +1,41 @@
+{
+  "school": "学校中文名",
+  "code": "学校英文简称（小写）",
+  "base_url": "https://研招网域名",
+  "engine": "vsb",
+  "encoding": "utf-8",
+  "request": {
+    "timeout": 15,
+    "min_delay": 1.0,
+    "max_delay": 3.0,
+    "retries": 3
+  },
+  "channels": {
+    "latest_notice": {
+      "name": "最新通知",
+      "list_url": "通知列表页URL",
+      "category_id": null,
+      "items_per_page": 14,
+      "pagination": {
+        "type": "reverse_numbered",
+        "pattern": "{base_path}/{page_num}.htm",
+        "first_page": "{base_path}.htm"
+      },
+      "selectors": {
+        "list_container": "div.text-list ul li",
+        "title": "div.text-h3",
+        "date_day_month": "div.date p",
+        "date_year": "div.date span",
+        "link": "a[href]",
+        "detail_title": "div.art-tit h3",
+        "detail_date": "div.art-tit span",
+        "detail_content": "div#vsb_content"
+      }
+    }
+  },
+  "monitor_keywords": [
+    "复试", "调剂", "录取", "夏令营", "推免", "预推免",
+    "招生简章", "招生章程", "招生目录", "分数线",
+    "导师", "报名", "网上确认", "准考证", "拟录取"
+  ]
+}

@@ -1,0 +1,13 @@
+# 真实密钥与个人数据，永不入库
+.env
+*.env
+!.env.example
+
+# 课题组跑出来的数据，各自留本地
+skills/*/data/*
+!skills/*/data/.gitkeep
+
+# 运行残留
+__pycache__/
+*.pyc
+.DS_Store

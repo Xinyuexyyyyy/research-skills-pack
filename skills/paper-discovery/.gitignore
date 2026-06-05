@@ -1,0 +1,11 @@
+# 环境变量配置文件（包含 API keys）
+.env
+
+# Python 缓存
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 临时文件
+*.tmp
+*.log

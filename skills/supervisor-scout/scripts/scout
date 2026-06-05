@@ -1,0 +1,385 @@
+#!/bin/bash
+#
+# Supervisor Scout — 统一命令入口
+# ================================
+# 用法: scout <command> [args...]
+#
+# 命令:
+#   monitor <school> [keywords...]   监控研招网通知
+#   collect <school> [college]       采集导师名单
+#   screen <input.json>              生成 Layer 1 快筛表
+#   profile <name> [--school <s>]    导师学术画像
+#   layer2 <input.csv> <output_dir>  批量生成 Layer 2 画像
+#   overview <profiles_dir>          生成 Layer 2 横向总览与推荐名单
+#   layer3 <input.csv> <output_dir> [overview.csv]
+#   layer3-overview <profiles_dir>   生成 Layer 3 横向总览
+#   layer3-reading <profiles_dir> <output_dir>
+#   rank <school>                    生成评级报告
+#   list <school> [--pages N]        爬取通知列表
+#   incremental <school>             增量更新
+#
+# 示例:
+#   scout monitor bjut
+#   scout monitor buaa 复试 调剂
+#   scout collect bjut jxny
+#   scout profile 张红光 --school 北京工业大学
+#   scout list bit --pages 2
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SKILL_DIR="$(dirname "$SCRIPT_DIR")"
+PYTHON="${PYTHON:-python3}"
+
+# 颜色输出
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+show_help() {
+    cat << 'EOF'
+Supervisor Scout — 导师调研与背调系统
+
+用法: scout <command> [args...]
+
+命令:
+  monitor <school> [keywords...]     关键词监控研招网通知
+  collect <school> [college]         采集导师名单
+  screen <input.json>                生成 Layer 1 快筛表
+  profile <name> [--school <s>]      生成导师学术画像
+  layer2 <input.csv> <output_dir>    批量生成 Layer 2 画像
+  overview <profiles_dir>            生成 Layer 2 横向总览与推荐名单
+  layer3 <input.csv> <output_dir> [overview.csv]
+                                     生成 Layer 3 深度画像（默认读取主推荐）
+  layer3-overview <profiles_dir>     生成 Layer 3 横向总览
+  layer3-reading <profiles_dir> <output_dir>
+                                     生成 Layer 3 套磁前读文版
+  rank <school>                      生成导师评级报告
+  list <school> [--pages N]          爬取通知列表
+  incremental <school>               增量更新（只爬新公告）
+  help                               显示此帮助
+
+学校代码:
+  bjut    北京工业大学
+  buaa    北京航空航天大学
+  bit     北京理工大学
+
+示例:
+  scout monitor bjut                    监控北工大全部通知
+  scout monitor buaa 复试 调剂 录取      监控北航含关键词的通知
+  scout collect bjut jxny               采集北工大机械学院导师
+  scout screen data/processed/bit/me_vehicle_supervisors.json
+  scout profile 张红光 --school bjut    生成张红光学术画像
+  scout layer2 a_candidates.csv profiles_A
+  scout overview data/processed/bit/profiles_A_layer2_multisource_v3
+  scout layer3 data/processed/bit/me_vehicle_layer1_A_candidates.csv data/processed/bit/profiles_A_layer3_deep data/processed/bit/profiles_A_layer2_multisource_v3/LAYER2_OVERVIEW.csv
+  scout layer3-overview data/processed/bit/profiles_A_layer3_deep
+  scout layer3-reading data/processed/bit/profiles_A_layer3_deep data/processed/bit/profiles_A_layer3_reading
+  scout rank bit                        生成北理导师报告
+  scout list bit --pages 3              爬北理前3页通知
+  scout incremental bjut                北工大增量更新
+EOF
+}
+
+# 获取学校配置路径
+get_config() {
+    local school="$1"
+    echo "${SKILL_DIR}/configs/${school}.json"
+}
+
+# 检查配置存在
+check_config() {
+    local school="$1"
+    local config_path
+    config_path=$(get_config "$school")
+    if [ ! -f "$config_path" ]; then
+        echo -e "${RED}[错误]${NC} 找不到学校配置: $config_path" >&2
+        echo "支持的学校: bjut, buaa, bit" >&2
+        exit 1
+    fi
+}
+
+cmd_monitor() {
+    local school="$1"
+    shift
+    check_config "$school"
+
+    local config_path
+    config_path=$(get_config "$school")
+
+    if [ $# -eq 0 ]; then
+        echo -e "${YELLOW}[$school]${NC} 启动关键词监控（使用默认关键词）..."
+        "$PYTHON" "${SCRIPT_DIR}/crawler.py" --config "$config_path" --mode monitor --max-pages 2
+    else
+        echo -e "${YELLOW}[$school]${NC} 监控关键词: $*"
+        "$PYTHON" "${SCRIPT_DIR}/crawler.py" --config "$config_path" --mode monitor --keywords "$@" --max-pages 2
+    fi
+}
+
+cmd_collect() {
+    local school="$1"
+    local college="${2:-}"
+    check_config "$school"
+
+    if [ -n "$college" ]; then
+        echo -e "${YELLOW}[$school]${NC} 采集学院: $college"
+        "$PYTHON" "${SCRIPT_DIR}/collect_supervisors.py" --school "$school" --college "$college"
+    else
+        echo -e "${YELLOW}[$school]${NC} 采集全部导师..."
+        "$PYTHON" "${SCRIPT_DIR}/collect_supervisors.py" --school "$school"
+    fi
+}
+
+cmd_profile() {
+    local name="$1"
+    local school=""
+    shift
+
+    # 解析 --school 参数
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --school)
+                school="$2"
+                shift 2
+                ;;
+            *)
+                shift
+                ;;
+        esac
+    done
+
+    echo -e "${YELLOW}[导师画像]${NC} $name ${school:+($school)}"
+    if [ -n "$school" ]; then
+        "$PYTHON" "${SCRIPT_DIR}/scholar_lookup.py" --name "$name" --school "$school"
+    else
+        "$PYTHON" "${SCRIPT_DIR}/scholar_lookup.py" --name "$name"
+    fi
+}
+
+cmd_screen() {
+    local input_path="$1"
+    echo -e "${YELLOW}[Layer 1]${NC} 快筛: $input_path"
+    "$PYTHON" "${SCRIPT_DIR}/layer1_scout.py" --input "$input_path"
+}
+
+cmd_rank() {
+    local school="$1"
+    check_config "$school"
+    echo -e "${YELLOW}[评级报告]${NC} $school"
+    "$PYTHON" "${SCRIPT_DIR}/report_gen.py" --school "$school"
+}
+
+cmd_layer2() {
+    local input_csv="$1"
+    local output_dir="$2"
+    echo -e "${YELLOW}[Layer 2]${NC} 批量画像: $input_csv -> $output_dir"
+    "$PYTHON" "${SCRIPT_DIR}/layer2_batch_profiles.py" --input "$input_csv" --output-dir "$output_dir"
+}
+
+cmd_overview() {
+    local profiles_dir="$1"
+    local output_md="${2:-${profiles_dir}/LAYER2_OVERVIEW.md}"
+    local output_csv="${3:-${profiles_dir}/LAYER2_OVERVIEW.csv}"
+    echo -e "${YELLOW}[Layer 2 总览]${NC} $profiles_dir"
+    "$PYTHON" "${SCRIPT_DIR}/layer2_overview_report.py" \
+        --profiles-dir "$profiles_dir" \
+        --output-md "$output_md" \
+        --output-csv "$output_csv"
+}
+
+cmd_layer3() {
+    local input_csv="$1"
+    local output_dir="$2"
+    local overview_csv="${3:-}"
+    echo -e "${YELLOW}[Layer 3]${NC} 深度画像: $input_csv -> $output_dir"
+    if [ -n "$overview_csv" ]; then
+        "$PYTHON" "${SCRIPT_DIR}/layer3_deep_profiles.py" \
+            --candidates-csv "$input_csv" \
+            --overview-csv "$overview_csv" \
+            --output-dir "$output_dir"
+    else
+        "$PYTHON" "${SCRIPT_DIR}/layer3_deep_profiles.py" \
+            --candidates-csv "$input_csv" \
+            --output-dir "$output_dir"
+    fi
+}
+
+cmd_layer3_overview() {
+    local profiles_dir="$1"
+    local output_md="${2:-${profiles_dir}/LAYER3_OVERVIEW.md}"
+    local output_csv="${3:-${profiles_dir}/LAYER3_OVERVIEW.csv}"
+    echo -e "${YELLOW}[Layer 3 总览]${NC} $profiles_dir"
+    "$PYTHON" "${SCRIPT_DIR}/layer3_overview_report.py" \
+        --profiles-dir "$profiles_dir" \
+        --output-md "$output_md" \
+        --output-csv "$output_csv"
+}
+
+cmd_layer3_reading() {
+    local profiles_dir="$1"
+    local output_dir="$2"
+    local overview_csv="${3:-${profiles_dir}/LAYER3_OVERVIEW.csv}"
+    echo -e "${YELLOW}[Layer 3 读文版]${NC} $profiles_dir -> $output_dir"
+    "$PYTHON" "${SCRIPT_DIR}/layer3_reading_briefs.py" \
+        --profiles-dir "$profiles_dir" \
+        --output-dir "$output_dir" \
+        --overview-csv "$overview_csv"
+}
+
+cmd_list() {
+    local school="$1"
+    shift
+    check_config "$school"
+
+    local config_path
+    config_path=$(get_config "$school")
+    local pages="0"
+
+    # 解析 --pages 参数
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --pages)
+                pages="$2"
+                shift 2
+                ;;
+            *)
+                shift
+                ;;
+        esac
+    done
+
+    echo -e "${YELLOW}[$school]${NC} 爬取通知列表 (pages=$pages)..."
+    "$PYTHON" "${SCRIPT_DIR}/crawler.py" --config "$config_path" --mode list --max-pages "$pages"
+}
+
+cmd_incremental() {
+    local school="$1"
+    check_config "$school"
+
+    local config_path
+    config_path=$(get_config "$school")
+
+    echo -e "${YELLOW}[$school]${NC} 增量更新..."
+    "$PYTHON" "${SCRIPT_DIR}/crawler.py" --config "$config_path" --mode incremental
+}
+
+# 主入口
+main() {
+    if [ $# -eq 0 ]; then
+        show_help
+        exit 0
+    fi
+
+    local cmd="$1"
+    shift
+
+    case "$cmd" in
+        monitor)
+            if [ $# -eq 0 ]; then
+                echo -e "${RED}[错误]${NC} 缺少学校参数" >&2
+                echo "用法: scout monitor <school> [keywords...]" >&2
+                exit 1
+            fi
+            cmd_monitor "$@"
+            ;;
+        collect)
+            if [ $# -eq 0 ]; then
+                echo -e "${RED}[错误]${NC} 缺少学校参数" >&2
+                echo "用法: scout collect <school> [college]" >&2
+                exit 1
+            fi
+            cmd_collect "$@"
+            ;;
+        profile)
+            if [ $# -eq 0 ]; then
+                echo -e "${RED}[错误]${NC} 缺少导师姓名" >&2
+                echo "用法: scout profile <name> [--school <s>]" >&2
+                exit 1
+            fi
+            cmd_profile "$@"
+            ;;
+        screen)
+            if [ $# -eq 0 ]; then
+                echo -e "${RED}[错误]${NC} 缺少导师名单文件" >&2
+                echo "用法: scout screen <input.json>" >&2
+                exit 1
+            fi
+            cmd_screen "$@"
+            ;;
+        rank)
+            if [ $# -eq 0 ]; then
+                echo -e "${RED}[错误]${NC} 缺少学校参数" >&2
+                echo "用法: scout rank <school>" >&2
+                exit 1
+            fi
+            cmd_rank "$@"
+            ;;
+        layer2)
+            if [ $# -lt 2 ]; then
+                echo -e "${RED}[错误]${NC} 参数不足" >&2
+                echo "用法: scout layer2 <input.csv> <output_dir>" >&2
+                exit 1
+            fi
+            cmd_layer2 "$@"
+            ;;
+        overview)
+            if [ $# -lt 1 ]; then
+                echo -e "${RED}[错误]${NC} 参数不足" >&2
+                echo "用法: scout overview <profiles_dir> [output_md] [output_csv]" >&2
+                exit 1
+            fi
+            cmd_overview "$@"
+            ;;
+        layer3)
+            if [ $# -lt 2 ]; then
+                echo -e "${RED}[错误]${NC} 参数不足" >&2
+                echo "用法: scout layer3 <input.csv> <output_dir> [overview.csv]" >&2
+                exit 1
+            fi
+            cmd_layer3 "$@"
+            ;;
+        layer3-overview)
+            if [ $# -lt 1 ]; then
+                echo -e "${RED}[错误]${NC} 参数不足" >&2
+                echo "用法: scout layer3-overview <profiles_dir> [output_md] [output_csv]" >&2
+                exit 1
+            fi
+            cmd_layer3_overview "$@"
+            ;;
+        layer3-reading)
+            if [ $# -lt 2 ]; then
+                echo -e "${RED}[错误]${NC} 参数不足" >&2
+                echo "用法: scout layer3-reading <profiles_dir> <output_dir> [overview_csv]" >&2
+                exit 1
+            fi
+            cmd_layer3_reading "$@"
+            ;;
+        list)
+            if [ $# -eq 0 ]; then
+                echo -e "${RED}[错误]${NC} 缺少学校参数" >&2
+                echo "用法: scout list <school> [--pages N]" >&2
+                exit 1
+            fi
+            cmd_list "$@"
+            ;;
+        incremental)
+            if [ $# -eq 0 ]; then
+                echo -e "${RED}[错误]${NC} 缺少学校参数" >&2
+                echo "用法: scout incremental <school>" >&2
+                exit 1
+            fi
+            cmd_incremental "$@"
+            ;;
+        help|--help|-h)
+            show_help
+            ;;
+        *)
+            echo -e "${RED}[错误]${NC} 未知命令: $cmd" >&2
+            show_help
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"

@@ -1,0 +1,60 @@
+{
+  "school": "北京航空航天大学",
+  "code": "buaa",
+  "base_url": "https://yzb.buaa.edu.cn",
+  "engine": "vsb",
+  "encoding": "utf-8",
+  "request": {
+    "timeout": 15,
+    "min_delay": 1.0,
+    "max_delay": 3.0,
+    "retries": 3
+  },
+  "channels": {
+    "latest_notice": {
+      "name": "动态消息",
+      "list_url": "zxsd/dtxx.htm",
+      "category_id": 1036,
+      "items_per_page": 20,
+      "pagination": {
+        "type": "reverse_numbered",
+        "pattern": "zxsd/dtxx/{page_num}.htm",
+        "first_page": "zxsd/dtxx.htm"
+      },
+      "selectors": {
+        "list_container": "ul.newslist li",
+        "title": "a",
+        "date": "span",
+        "link": "a[href]",
+        "detail_title": "h1, div.title",
+        "detail_date": "span.date, div.info span",
+        "detail_content": "div.content, div.v_news_content"
+      }
+    },
+    "policy": {
+      "name": "政策法规",
+      "list_url": "zxsd/zcfg.htm",
+      "category_id": 1035,
+      "items_per_page": 10,
+      "pagination": {
+        "type": "reverse_numbered",
+        "pattern": "zxsd/zcfg/{page_num}.htm",
+        "first_page": "zxsd/zcfg.htm"
+      },
+      "selectors": {
+        "list_container": "ul.newslist li",
+        "title": "a",
+        "date": "span",
+        "link": "a[href]",
+        "detail_title": "h1, div.title",
+        "detail_date": "span.date, div.info span",
+        "detail_content": "div.content, div.v_news_content"
+      }
+    }
+  },
+  "monitor_keywords": [
+    "复试", "调剂", "录取", "夏令营", "推免", "预推免",
+    "招生简章", "招生章程", "招生目录", "分数线",
+    "导师", "报名", "网上确认", "准考证", "拟录取"
+  ]
+}

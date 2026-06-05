@@ -1,0 +1,181 @@
+{
+  "school": "北京工业大学",
+  "code": "bjut",
+  "base_url": "https://yanzhao.bjut.edu.cn",
+  "engine": "vsb",
+  "encoding": "utf-8",
+  "request": {
+    "timeout": 15,
+    "min_delay": 1.0,
+    "max_delay": 3.0,
+    "retries": 3
+  },
+  "channels": {
+    "latest_notice": {
+      "name": "最新通知",
+      "list_url": "zxtz.htm",
+      "category_id": 1019,
+      "items_per_page": 14,
+      "pagination": {
+        "type": "reverse_numbered",
+        "pattern": "{base_path}/{page_num}.htm",
+        "first_page": "{base_path}.htm"
+      },
+      "selectors": {
+        "list_container": "div.text-list ul li",
+        "title": "div.text-h3",
+        "date_day_month": "div.date p",
+        "date_year": "div.date span",
+        "link": "a[href]",
+        "detail_title": "div.art-tit h3",
+        "detail_date": "div.art-tit span",
+        "detail_content": "div#vsb_content"
+      }
+    },
+    "master_notice": {
+      "name": "硕士招生-通知公告",
+      "list_url": "sszs/tzgg.htm",
+      "category_id": 1025,
+      "items_per_page": 14,
+      "pagination": {
+        "type": "reverse_numbered",
+        "pattern": "{base_path}/{page_num}.htm",
+        "first_page": "{base_path}.htm"
+      },
+      "selectors": {
+        "list_container": "div.text-list ul li",
+        "title": "div.text-h3",
+        "date_day_month": "div.date p",
+        "date_year": "div.date span",
+        "link": "a[href]",
+        "detail_title": "div.art-tit h3",
+        "detail_date": "div.art-tit span",
+        "detail_content": "div#vsb_content"
+      }
+    },
+    "master_charter": {
+      "name": "硕士招生-招生章程",
+      "list_url": "sszs/zszc.htm",
+      "category_id": 1707,
+      "items_per_page": 14,
+      "pagination": {
+        "type": "reverse_numbered",
+        "pattern": "{base_path}/{page_num}.htm",
+        "first_page": "{base_path}.htm"
+      },
+      "selectors": {
+        "list_container": "div.text-list ul li",
+        "title": "div.text-h3",
+        "date_day_month": "div.date p",
+        "date_year": "div.date span",
+        "link": "a[href]",
+        "detail_title": "div.art-tit h3",
+        "detail_date": "div.art-tit span",
+        "detail_content": "div#vsb_content"
+      }
+    },
+    "phd_notice": {
+      "name": "博士招生-通知公告",
+      "list_url": "bszs/tzgg.htm",
+      "category_id": 1711,
+      "items_per_page": 14,
+      "pagination": {
+        "type": "reverse_numbered",
+        "pattern": "{base_path}/{page_num}.htm",
+        "first_page": "{base_path}.htm"
+      },
+      "selectors": {
+        "list_container": "div.text-list ul li",
+        "title": "div.text-h3",
+        "date_day_month": "div.date p",
+        "date_year": "div.date span",
+        "link": "a[href]",
+        "detail_title": "div.art-tit h3",
+        "detail_date": "div.art-tit span",
+        "detail_content": "div#vsb_content"
+      }
+    },
+    "phd_charter": {
+      "name": "博士招生-招生章程",
+      "list_url": "bszs/zszc.htm",
+      "category_id": 1709,
+      "items_per_page": 14,
+      "pagination": {
+        "type": "reverse_numbered",
+        "pattern": "{base_path}/{page_num}.htm",
+        "first_page": "{base_path}.htm"
+      },
+      "selectors": {
+        "list_container": "div.text-list ul li",
+        "title": "div.text-h3",
+        "date_day_month": "div.date p",
+        "date_year": "div.date span",
+        "link": "a[href]",
+        "detail_title": "div.art-tit h3",
+        "detail_date": "div.art-tit span",
+        "detail_content": "div#vsb_content"
+      }
+    },
+    "exam_site": {
+      "name": "考点工作",
+      "list_url": "kdgz.htm",
+      "category_id": 1713,
+      "items_per_page": 14,
+      "pagination": {
+        "type": "reverse_numbered",
+        "pattern": "{base_path}/{page_num}.htm",
+        "first_page": "{base_path}.htm"
+      },
+      "selectors": {
+        "list_container": "div.text-list ul li",
+        "title": "div.text-h3",
+        "date_day_month": "div.date p",
+        "date_year": "div.date span",
+        "link": "a[href]",
+        "detail_title": "div.art-tit h3",
+        "detail_date": "div.art-tit span",
+        "detail_content": "div#vsb_content"
+      }
+    },
+    "new_student": {
+      "name": "新生工作",
+      "list_url": "xsgz.htm",
+      "category_id": 1714,
+      "items_per_page": 14,
+      "pagination": {
+        "type": "reverse_numbered",
+        "pattern": "{base_path}/{page_num}.htm",
+        "first_page": "{base_path}.htm"
+      },
+      "selectors": {
+        "list_container": "div.text-list ul li",
+        "title": "div.text-h3",
+        "date_day_month": "div.date p",
+        "date_year": "div.date span",
+        "link": "a[href]",
+        "detail_title": "div.art-tit h3",
+        "detail_date": "div.art-tit span",
+        "detail_content": "div#vsb_content"
+      }
+    },
+    "supervisors": {
+      "name": "导师队伍-博硕导师",
+      "list_url": "dsdw/bsds.htm",
+      "category_id": null,
+      "items_per_page": 0,
+      "pagination": {
+        "type": "none"
+      },
+      "selectors": {
+        "list_container": "div.text-list ul li",
+        "title": "div.text-h3",
+        "link": "a[href]"
+      }
+    }
+  },
+  "monitor_keywords": [
+    "复试", "调剂", "录取", "夏令营", "推免", "预推免",
+    "招生简章", "招生章程", "招生目录", "分数线",
+    "导师", "报名", "网上确认", "准考证", "拟录取"
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "school": "北京理工大学",
+  "code": "bit",
+  "base_url": "https://grd.bit.edu.cn",
+  "engine": "custom",
+  "encoding": "utf-8",
+  "request": {
+    "timeout": 15,
+    "min_delay": 1.0,
+    "max_delay": 3.0,
+    "retries": 3
+  },
+  "channels": {
+    "latest_notice": {
+      "name": "通知公告",
+      "list_url": "tzgg1/index.htm",
+      "category_id": null,
+      "items_per_page": 20,
+      "pagination": {
+        "type": "numbered_zero_based",
+        "pattern": "tzgg1/index{page_num}.htm",
+        "first_page": "tzgg1/index.htm",
+        "page_num_offset": 0
+      },
+      "selectors": {
+        "list_container": "div.page-list5 > ul.block-list > li",
+        "title": "p.gpArticleTitle, a p",
+        "date": "span.gpArticleDate, a span",
+        "link": "a[href]",
+        "detail_title": "h1, div.title",
+        "detail_date": "span.gpArticleDate, span.date",
+        "detail_content": "div.content"
+      }
+    }
+  },
+  "monitor_keywords": [
+    "复试", "调剂", "录取", "夏令营", "推免", "预推免",
+    "招生简章", "招生章程", "招生目录", "分数线",
+    "导师", "报名", "网上确认", "准考证", "拟录取"
+  ],
+  "colleges": {
+    "me_vehicle": {
+      "name": "机械与车辆学院-车辆工程系",
+      "url": "https://me.bit.edu.cn/szdw/jsml/jlgcx/index.htm",
+      "type": "bit_me"
+    },
+    "me_energy": {
+      "name": "机械与车辆学院-能源与动力工程系",
+      "url": "https://me.bit.edu.cn/szdw/jsml/rnydlgcx/index.htm",
+      "type": "bit_me"
+    }
+  }
+}
