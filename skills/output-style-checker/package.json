@@ -1,0 +1,18 @@
+{
+  "name": "output-style-checker",
+  "private": true,
+  "version": "0.1.0",
+  "type": "commonjs",
+  "scripts": {
+    "lint:samples": "textlint --rulesdir ./rules samples/**/*.md",
+    "lint:file": "textlint --rulesdir ./rules",
+    "lint:fixtures": "textlint --rulesdir ./rules regression/**/*.md",
+    "lint:regression": "node scripts/lint-real-files.js",
+    "eval:samples": "promptfoo eval -c promptfoo/self-article.yaml",
+    "view:samples": "promptfoo view"
+  },
+  "devDependencies": {
+    "promptfoo": "^0.121.11",
+    "textlint": "^15.2.2"
+  }
+}

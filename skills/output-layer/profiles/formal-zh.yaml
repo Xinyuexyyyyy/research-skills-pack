@@ -1,0 +1,78 @@
+name: formal-zh
+description: 中文正式文档基础规则（第一版）
+defaults:
+  outputs:
+    - markdown
+    - obsidian
+    - docx
+rules:
+  locale: zh-CN
+  typography:
+    body_font: 仿宋 GB2312
+    body_size: 小四
+    title_font: 黑体
+    title_size: 小二
+    title_weight: bold
+    title_align: center
+    heading_font: 仿宋 GB2312
+    heading_weight: bold
+    heading1_size: 16
+    heading2_size: 14
+    heading3_size: 12
+  paragraph:
+    first_line_indent: 2char
+    line_spacing: 28
+    spacing_before: 10
+    spacing_after: 14
+    alignment: justify
+  page:
+    margin: normal
+    page_number: off
+    page_number_align: center
+    first_page_number: off
+    header_text: ""
+    footer_text: ""
+    header_align: center
+    footer_align: center
+    header_font: 宋体
+    header_size: 小五
+    footer_font: 宋体
+    footer_size: 小五
+    page_number_font: 宋体
+    page_number_size: 小五
+  headings:
+    heading1_spacing_before: 10
+    heading1_spacing_after: 14
+    heading2_spacing_before: 10
+    heading2_spacing_after: 14
+    heading3_spacing_before: 8
+    heading3_spacing_after: 14
+    heading_align: left
+  numbering:
+    level1_style: chinese
+    level2_style: arabic
+docx:
+  reference_doc: formal-zh-reference.docx
+obsidian:
+  mode: obsidian-enhanced
+style_correction:
+  enabled: on
+  preset: explainer-zh-v1
+  spec: style-correction-v1.md
+  findings:
+    weak_opener:
+      enabled: on
+      prefixes: 需要注意的是，,值得注意的是，,某种程度上，,从某种意义上说，,说到底，,归根结底，
+      severity: medium
+      message: 开头先用了套话，结论起得偏慢。
+    repeated_template_phrases:
+      enabled: on
+      phrases: 需要注意的是,值得注意的是,某种程度上,从某种意义上说,换句话说,归根结底
+      threshold: 2
+      severity: medium
+      message: 模板化表达重复出现，容易带出 AI 味。
+    weak_explicit_judgment:
+      enabled: on
+      markers: 我的判断是,我判断,核心是,关键是,关键不是,真正的问题,问题在于,本质上,更准确地说
+      severity: low
+      message: 正文里缺少明确判断句，容易只解释现象，不落判断。

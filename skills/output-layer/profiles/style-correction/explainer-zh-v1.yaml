@@ -1,0 +1,35 @@
+name: explainer-zh-v1
+description: 解释型中文风格校正预设（第一版）
+rules:
+  paragraph_prefix_rewrites: on
+  sentence_rewrites: on
+  trim_whitespace: on
+findings:
+  weak_opener:
+    enabled: on
+    prefixes: 需要注意的是，,值得注意的是，,某种程度上，,从某种意义上说，,说到底，,归根结底，
+    severity: medium
+    message: 开头先用了套话，结论起得偏慢。
+  repeated_template_phrases:
+    enabled: on
+    phrases: 需要注意的是,值得注意的是,某种程度上,从某种意义上说,换句话说,归根结底
+    threshold: 2
+    severity: medium
+    message: 模板化表达重复出现，容易带出 AI 味。
+  weak_explicit_judgment:
+    enabled: on
+    markers: 我的判断是,我判断,核心是,关键是,关键不是,真正的问题,问题在于,本质上,更准确地说
+    severity: low
+    message: 正文里缺少明确判断句，容易只解释现象，不落判断。
+rewrites:
+  paragraph_prefix:
+    需要注意的是，: <DELETE>
+    值得注意的是，: <DELETE>
+    某种程度上，: <DELETE>
+    从某种意义上说，: <DELETE>
+    说到底，: <DELETE>
+    归根结底，: <DELETE>
+    我现在越来越倾向于一个判断：: 我的判断是：
+    这件事真正值得问的问题，不是: 真正的问题不是
+  sentence:
+    换句话说，我们可以理解为: 换句话说，

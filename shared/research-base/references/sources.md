@@ -16,7 +16,7 @@
 - Zotero / Obsidian 整合(超出 V1 范围)
 - 完整的 86 个 skill 列表(非通用)
 
-**原始 harvest**:`/Users/sure/Daily Work/skills/harvest-tool/data/harvest_Galaxy-Dawn_claude-scholar.json`
+**原始 harvest**:`<workspace>/skills/harvest-tool/data/harvest_Galaxy-Dawn_claude-scholar.json`
 
 ---
 
@@ -32,7 +32,7 @@
 - Python + FastAPI + Vue 3 实现栈(我们是 prompt 优先,不写代码)
 - 4+ LLM 投票(Claude Code 单模型,暂用提取一致性代替)
 
-**原始 harvest**:`/Users/sure/Daily Work/skills/harvest-tool/data/harvest_ChaokunHong_MetaScreener.json`
+**原始 harvest**:`<workspace>/skills/harvest-tool/data/harvest_ChaokunHong_MetaScreener.json`
 
 ---
 
@@ -46,7 +46,7 @@
 **未抄**:
 - 86 个 skill 的内容(它是 PM 领域,我们是调研领域)
 
-**原始 harvest**:`/Users/sure/Daily Work/skills/harvest-tool/data/harvest_RefoundAI_lenny-skills.json`
+**原始 harvest**:`<workspace>/skills/harvest-tool/data/harvest_RefoundAI_lenny-skills.json`
 
 ---
 
@@ -61,7 +61,7 @@
 - 中国法律领域知识(超出范围)
 - 严格法条引用格式(普通调研用 BibTeX / Markdown 即可)
 
-**原始 harvest**:`/Users/sure/Daily Work/skills/harvest-tool/data/harvest_Golden2002_legal-research-skill.json`
+**原始 harvest**:`<workspace>/skills/harvest-tool/data/harvest_Golden2002_legal-research-skill.json`
 
 ---
 
@@ -119,7 +119,7 @@
 
 ## 9. V3 共识文档(用户自定的)
 
-**位置**:`/Users/sure/Daily Work/task_draft/consensus/research-task-system-v3-20260503-035800/`
+**位置**:`<workspace>/task_draft/consensus/research-task-system-v3-20260503-035800/`
 
 **抄了**:
 - 四类模板的边界与定位

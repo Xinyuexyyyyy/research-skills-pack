@@ -1,0 +1,37 @@
+description: Minimal eval scaffold for self-article
+
+prompts:
+  - "samples/self-article.bad.md"
+  - "samples/self-article.good.md"
+
+providers:
+  - file://promptfoo/file-provider.js
+
+tests:
+  - vars:
+      expected: fail
+    assert:
+      - type: javascript
+        value: |
+          const badPhrases = [
+            "它的核心其实很简单",
+            "真正有价值的地方",
+            "更狠的判断",
+            "攻击性"
+          ];
+          const hit = badPhrases.some((phrase) => output.includes(phrase));
+          return hit === true;
+  - vars:
+      expected: pass
+    assert:
+      - type: javascript
+        value: |
+          const badPhrases = [
+            "它的核心其实很简单",
+            "真正有价值的地方",
+            "更狠的判断",
+            "攻击性"
+          ];
+          const hit = badPhrases.some((phrase) => output.includes(phrase));
+          return hit === false;
+

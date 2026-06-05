@@ -10,7 +10,8 @@ research-skills-pack/
 ├── doctor.py            一键自检：跑它就知道装好没、缺什么
 ├── MANIFEST.md          本文件（锁死的事实层）
 ├── README.md            人看的入口：这是什么、怎么接入
-├── skills/              17 个 skill（已清理，可共享）
+├── skills/              22 个 skill（已清理，可共享，按三层组织）
+│   │  ── 调研层（15）──
 │   ├── topic-framing/        领域 → 可研究题目
 │   ├── research-ideation/    研究想法生成/发散
 │   ├── method-design/        研究方法设计
@@ -26,8 +27,15 @@ research-skills-pack/
 │   ├── knowledge-compiler/   论文 → 知识包编译
 │   ├── rigor-reviewer/       严谨性审查
 │   ├── supervisor-scout/     导师调研与背调
+│   │  ── 任务执行层（4）──
+│   ├── task-analyze/         需求初步理解
+│   ├── task-decompose/       任务拆解（≤5 子任务）
 │   ├── idea-to-research/     模糊想法 → 调研路由
-│   └── closeout/             任务收尾 + 锚点
+│   ├── closeout/             任务收尾 + 锚点
+│   │  ── 输出层（3）──
+│   ├── output-layer/         公共输出层（MD/PDF/Obsidian/PPT 渲染）
+│   ├── output-polisher/      排版与导出润色
+│   └── output-style-checker/ 规则检查与评测闸门（含 regression 夹具）
 ├── shared/
 │   └── research-base/       地基：学术 skill 的 schema 底座
 └── tools/                   跨 skill 复用的工具
@@ -35,6 +43,10 @@ research-skills-pack/
     ├── elsevier_fetch.py        Elsevier API 抓取
     └── evidence_extractor.py    证据抽取
 ```
+
+> **输出层依赖注意**：`output-layer` / `output-style-checker` 用到 Node 工具链
+> （pandoc、textlint、promptfoo 等）。包内**不含 node_modules**（已剔除），
+> 用到时在对应 skill 目录跑 `npm install` 自行安装。
 
 ## 二、依赖矩阵（每个 skill 要什么）
 
@@ -56,6 +68,11 @@ research-skills-pack/
 | research | base/, packages/（包内自带） | — | CONTENT_DIR |
 | idea-to-research | 无 | harvest-tool | WORKSPACE_ROOT, HARVEST_TOOL_PATH |
 | closeout | 无 | 锚点池脚本 | ANCHOR_POOL_DIR |
+| task-analyze | 无 | — | 无 |
+| task-decompose | 无 | task-analyze（上游） | 无 |
+| output-layer | Python 标准库 | pandoc / wkhtmltopdf / Node 工具链（用到才装） | 无 |
+| output-polisher | Node.js | — | 无 |
+| output-style-checker | Node.js | textlint / promptfoo（`npm install` 自行装） | 无 |
 
 ## 三、接入步骤（锁死，照做即可）
 

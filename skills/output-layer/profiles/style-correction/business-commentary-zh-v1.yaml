@@ -1,0 +1,38 @@
+name: business-commentary-zh-v1
+description: 商业评论型中文风格校正预设（第一版）
+rules:
+  paragraph_prefix_rewrites: on
+  sentence_rewrites: on
+  trim_whitespace: on
+findings:
+  weak_opener:
+    enabled: on
+    prefixes: 需要注意的是，,值得注意的是，,某种程度上，,从某种意义上说，,说到底，,归根结底，
+    severity: medium
+    message: 开头先铺垫，商业判断出现得太晚。
+  repeated_template_phrases:
+    enabled: on
+    phrases: 需要注意的是,值得注意的是,某种程度上,从某种意义上说,换句话说,这背后反映出的其实是,本质上来说
+    threshold: 2
+    severity: medium
+    message: 评论腔模板重复，判断会显得不锋利。
+  weak_explicit_judgment:
+    enabled: on
+    markers: 我的判断是,我判断,核心是,关键是,关键不是,真正的问题,问题在于,本质上,更关键的是,更直白地说
+    severity: medium
+    message: 缺少明确商业判断，文章容易只解释现象。
+rewrites:
+  paragraph_prefix:
+    需要注意的是，: <DELETE>
+    值得注意的是，: <DELETE>
+    某种程度上，: <DELETE>
+    从某种意义上说，: <DELETE>
+    说到底，: <DELETE>
+    归根结底，: <DELETE>
+    我现在越来越倾向于一个判断：: 我的判断是：
+    这件事真正值得问的问题，不是: 真正的问题不是
+    更重要的是，: 更关键的是，
+  sentence:
+    换句话说，我们可以理解为: 更直白地说，
+    这背后反映出的其实是: 这背后是
+    本质上来说: 本质上，

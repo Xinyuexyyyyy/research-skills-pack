@@ -1,0 +1,123 @@
+@page {
+  size: A4;
+  margin: 2.54cm 3.17cm;
+}
+
+html {
+  color: #111;
+  font-family: "Times New Roman", "FangSong", "仿宋", "FangSong_GB2312", "STFangsong", serif;
+  font-size: 12pt;
+  line-height: 28pt;
+}
+
+body {
+  margin: 0;
+}
+
+h1:first-of-type {
+  margin: 0 0 14pt;
+  font-family: "Times New Roman", "Heiti SC", "SimHei", "黑体", sans-serif;
+  font-size: 18pt;
+  font-weight: 700;
+  line-height: 28pt;
+  text-align: center;
+}
+
+h1:not(:first-of-type) {
+  margin: 10pt 0 14pt;
+  font-family: "Times New Roman", "Heiti SC", "SimHei", "黑体", sans-serif;
+  font-size: 16pt;
+  font-weight: 700;
+  line-height: 28pt;
+}
+
+h2,
+h3,
+h4 {
+  margin: 10pt 0 14pt;
+  font-family: "Times New Roman", "Heiti SC", "SimHei", "黑体", sans-serif;
+  font-weight: 700;
+  line-height: 28pt;
+}
+
+h2 {
+  font-size: 14pt;
+}
+
+h3,
+h4 {
+  font-size: 12pt;
+}
+
+p {
+  margin: 0;
+  text-align: justify;
+  text-indent: 2em;
+}
+
+blockquote {
+  margin: 0 0 0 0;
+  padding-left: 0;
+  border-left: none;
+  color: #222;
+}
+
+blockquote p,
+li p,
+td p,
+th p,
+pre p {
+  text-indent: 0;
+}
+
+ul,
+ol {
+  margin: 0 0 0 1.6em;
+  padding-left: 0;
+}
+
+li {
+  margin: 0;
+  text-align: left;
+}
+
+table {
+  width: 100%;
+  margin: 8pt 0;
+  border-collapse: collapse;
+  font-size: 11pt;
+  line-height: 20pt;
+}
+
+th,
+td {
+  padding: 3pt 6pt;
+  border: 0.5pt solid #999;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  font-family: "Times New Roman", "Heiti SC", "SimHei", "黑体", sans-serif;
+  font-weight: 700;
+  background: #f3f3f3;
+}
+
+pre {
+  margin: 8pt 0;
+  padding: 8pt 10pt;
+  border: 0.5pt solid #ddd;
+  background: #f7f7f7;
+  white-space: pre-wrap;
+}
+
+code {
+  font-family: "Times New Roman", "FangSong", "仿宋", "FangSong_GB2312", "STFangsong", serif;
+  font-size: 10.5pt;
+}
+
+hr {
+  margin: 10pt 0 14pt;
+  border: none;
+  border-top: 0.5pt solid #999;
+}

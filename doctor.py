@@ -24,16 +24,23 @@ def bad(m): print(f"  {R}MISS{X} {m}")
 def opt(m): print(f"  {Y}--{X}   {m}")
 
 
-SKILLS = [
-    # 学术主链
-    "research", "academic-deep-research", "topic-framing", "method-design",
-    "paper-discovery", "paper-screening", "paper-reading",
-    "survey-writer", "paper-composer", "academic-plotting",
-    "knowledge-compiler", "research-academic", "research-ideation",
-    "rigor-reviewer", "supervisor-scout",
-    # 任务管理
-    "idea-to-research", "closeout",
-]
+# 按你的三层工作范式组织：调研 → 任务执行 → 输出
+LAYERS = {
+    "调研层": [
+        "research", "academic-deep-research", "topic-framing", "method-design",
+        "paper-discovery", "paper-screening", "paper-reading",
+        "survey-writer", "paper-composer", "academic-plotting",
+        "knowledge-compiler", "research-academic", "research-ideation",
+        "rigor-reviewer", "supervisor-scout",
+    ],
+    "任务执行层": [
+        "task-analyze", "task-decompose", "idea-to-research", "closeout",
+    ],
+    "输出层": [
+        "output-layer", "output-polisher", "output-style-checker",
+    ],
+}
+SKILLS = [s for layer in LAYERS.values() for s in layer]
 
 # (skill, 工具文件) — 地基工具，跨 skill 复用
 TOOLS = ["abstract_pipeline.py", "elsevier_fetch.py", "evidence_extractor.py"]
@@ -58,15 +65,17 @@ PY_DEPS = {
 
 
 def check_skills():
-    print(f"\n{D}[1/4] Skills（{len(SKILLS)} 个）{X}")
+    print(f"\n{D}[1/4] Skills（{len(SKILLS)} 个，按三层分组）{X}")
     missing = 0
-    for s in SKILLS:
-        skill_md = ROOT / "skills" / s / "SKILL.md"
-        if skill_md.exists():
-            ok(s)
-        else:
-            bad(f"{s}  — 缺 SKILL.md")
-            missing += 1
+    for layer, names in LAYERS.items():
+        print(f"  {D}· {layer}（{len(names)}）{X}")
+        for s in names:
+            skill_md = ROOT / "skills" / s / "SKILL.md"
+            if skill_md.exists():
+                ok(s)
+            else:
+                bad(f"{s}  — 缺 SKILL.md")
+                missing += 1
     return missing
 
 

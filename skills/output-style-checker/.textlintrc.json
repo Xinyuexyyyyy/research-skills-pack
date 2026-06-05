@@ -1,0 +1,11 @@
+{
+  "rules": {
+    "no_ai_contrast_phrases": true,
+    "no_filler_force_language": true,
+    "no_duplicate_paragraphs": true,
+    "require_final_takeaway": true,
+    "no_empty_emphasis_openers": true,
+    "no_dense_term_listing": true,
+    "no_meta_outline_scaffolding": true
+  }
+}
