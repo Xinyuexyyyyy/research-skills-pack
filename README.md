@@ -48,6 +48,22 @@
 
 
 
+## Windows 一键装环境（给新电脑用）
+
+新 Windows 电脑上想跑 Claude Code / Codex，先装工具链。仓库自带 `setup-windows.ps1`，
+自动装 **Node.js + Git + Claude Code + Codex CLI + CC Switch**（只负责装，不碰账号登录）：
+
+```powershell
+# 在 PowerShell 里运行（被执行策略拦住就用这行）
+powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
+
+# 只想看当前装了啥，不安装：
+powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1 -CheckOnly
+```
+
+装完按脚本末尾提示**手动登录**：重开 PowerShell → `claude`（浏览器登录）→ `codex`（登录）→ 打开 CC Switch 配供应商。
+单独跳过某项用 `-SkipNode` / `-SkipCodex` 等开关。要求 Windows 10/11 x64、自带 winget。
+
 ## 30 秒上手
 
 ```bash
