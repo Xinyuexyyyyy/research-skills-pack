@@ -5,17 +5,35 @@
 
 ## 这是什么
 
-7 个已清理（无密钥、无个人数据、无硬编码路径）的 skill：
+17 个已清理（无密钥、无个人数据、无硬编码路径）的 skill，覆盖科研全链路 + 任务管理：
 
-| 场景 | Skill | 一句话 |
+### 学术主链（按使用顺序）
+
+| 阶段 | Skill | 一句话 |
 |---|---|---|
-| 学术 | **research** | 调研总入口，最稳，建议从这起步 |
-| 学术 | **paper-discovery** | 把"我要研究 X"变成候选论文集 |
-| 学术 | **paper-reading** | 论文精读 + 结构化证据抽取 |
-| 学术 | **survey-writer** | 基于证据写综述 / related work |
-| 学术 | **supervisor-scout** | 导师调研与背调（保研/考研选导师） |
-| 任务 | **idea-to-research** | 模糊想法路由到调研 |
-| 任务 | **closeout** | 任务收尾，输出 6 段总结 |
+| 选题 | **topic-framing** | 把宽泛领域收敛成可研究的题目 |
+| 选题 | **research-ideation** | 生成 / 发散研究想法 |
+| 方法 | **method-design** | 设计研究方法与方案 |
+| 调研 | **research** | 调研总入口，最稳，建议从这起步 |
+| 调研 | **academic-deep-research** | 单一主题的深度学术调研 |
+| 找论文 | **paper-discovery** | 把"我要研究 X"变成候选论文集 |
+| 筛论文 | **paper-screening** | 候选池纳排筛选 |
+| 读论文 | **paper-reading** | 论文精读 + 结构化证据抽取 |
+| 写综述 | **survey-writer** | 基于证据写综述 / related work |
+| 组装 | **paper-composer** | 把综述之上组装成论文 |
+| 配图 | **academic-plotting** | 学术级图表绘制 |
+| 编译 | **knowledge-compiler** | 把读过的论文压成知识包 |
+| 把关 | **rigor-reviewer** | 严谨性审查（方法/论证漏洞）|
+| 路由 | **research-academic** | 学术任务路由器（内部调度）|
+
+### 独立工具
+
+| Skill | 一句话 |
+|---|---|
+| **supervisor-scout** | 导师调研与背调（保研/考研选导师）|
+| **idea-to-research** | 模糊想法路由到调研 |
+| **closeout** | 任务收尾，输出 6 段总结 |
+
 
 ## 30 秒上手
 

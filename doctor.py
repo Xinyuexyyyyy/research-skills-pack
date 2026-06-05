@@ -25,8 +25,14 @@ def opt(m): print(f"  {Y}--{X}   {m}")
 
 
 SKILLS = [
-    "paper-discovery", "supervisor-scout", "paper-reading",
-    "survey-writer", "research", "closeout", "idea-to-research",
+    # 学术主链
+    "research", "academic-deep-research", "topic-framing", "method-design",
+    "paper-discovery", "paper-screening", "paper-reading",
+    "survey-writer", "paper-composer", "academic-plotting",
+    "knowledge-compiler", "research-academic", "research-ideation",
+    "rigor-reviewer", "supervisor-scout",
+    # 任务管理
+    "idea-to-research", "closeout",
 ]
 
 # (skill, 工具文件) — 地基工具，跨 skill 复用
@@ -52,7 +58,7 @@ PY_DEPS = {
 
 
 def check_skills():
-    print(f"\n{D}[1/4] Skills（7 个）{X}")
+    print(f"\n{D}[1/4] Skills（{len(SKILLS)} 个）{X}")
     missing = 0
     for s in SKILLS:
         skill_md = ROOT / "skills" / s / "SKILL.md"

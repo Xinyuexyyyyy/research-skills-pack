@@ -10,14 +10,24 @@ research-skills-pack/
 ├── doctor.py            一键自检：跑它就知道装好没、缺什么
 ├── MANIFEST.md          本文件（锁死的事实层）
 ├── README.md            人看的入口：这是什么、怎么接入
-├── skills/              7 个 skill（已清理，可共享）
-│   ├── paper-discovery/     论文检索 + 候选池建立
-│   ├── paper-reading/       论文精读 + 证据抽取
-│   ├── survey-writer/       综述撰写
-│   ├── supervisor-scout/    导师调研与背调
-│   ├── research/            调研总入口（最稳，建议起步）
-│   ├── idea-to-research/    模糊想法 → 调研路由
-│   └── closeout/            任务收尾 + 锚点
+├── skills/              17 个 skill（已清理，可共享）
+│   ├── topic-framing/        领域 → 可研究题目
+│   ├── research-ideation/    研究想法生成/发散
+│   ├── method-design/        研究方法设计
+│   ├── research/             调研总入口（最稳，建议起步）
+│   ├── academic-deep-research/ 单主题深度学术调研
+│   ├── research-academic/    学术任务路由器（内部调度）
+│   ├── paper-discovery/      论文检索 + 候选池建立
+│   ├── paper-screening/      候选池纳排筛选
+│   ├── paper-reading/        论文精读 + 证据抽取
+│   ├── survey-writer/        综述撰写
+│   ├── paper-composer/       论文组装
+│   ├── academic-plotting/    学术级图表绘制
+│   ├── knowledge-compiler/   论文 → 知识包编译
+│   ├── rigor-reviewer/       严谨性审查
+│   ├── supervisor-scout/     导师调研与背调
+│   ├── idea-to-research/     模糊想法 → 调研路由
+│   └── closeout/             任务收尾 + 锚点
 ├── shared/
 │   └── research-base/       地基：学术 skill 的 schema 底座
 └── tools/                   跨 skill 复用的工具
@@ -31,8 +41,17 @@ research-skills-pack/
 | Skill | 必需依赖 | 可选依赖 | 相关环境变量 |
 |---|---|---|---|
 | paper-discovery | research-base, tools/abstract_pipeline.py | ELSEVIER_API_KEY | 无 |
+| paper-screening | research-base, candidate_papers.csv（上游产出） | — | 无 |
 | paper-reading | research-base, tools/evidence_extractor.py | ELSEVIER / S2 KEY | STUDY_RESEARCH_ROOT |
 | survey-writer | research-base, evidence_table.csv（上游产出） | — | 无 |
+| paper-composer | research-base, 综述稿（上游产出） | — | 无 |
+| academic-plotting | 数据/证据表（上游产出） | matplotlib 等绘图库 | 无 |
+| knowledge-compiler | research-base, 已读论文证据 | — | 无 |
+| academic-deep-research | research-base, packages/ | — | 无 |
+| research-academic | research-base（学术任务路由器，内部调度） | — | 无 |
+| topic-framing | 无 | research_gaps.md（上游产出） | 无 |
+| research-ideation | 无 | 上下游 skill | 无 |
+| rigor-reviewer | 无 | — | 无 |
 | supervisor-scout | bs4, lxml, requests | pypinyin | 无 |
 | research | base/, packages/（包内自带） | — | CONTENT_DIR |
 | idea-to-research | 无 | harvest-tool | WORKSPACE_ROOT, HARVEST_TOOL_PATH |
