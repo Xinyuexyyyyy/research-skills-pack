@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
   一键安装 AI 编码 CLI 工具链（Windows 10/11，x64）。
@@ -73,12 +73,18 @@ function Test-Winget {
 function Install-ViaWinget($id, $display) {
   if (-not (Test-Winget)) { Add-Result $display '跳过' 'winget 不可用'; return }
   Write-Host "  winget 安装 $display ($id) ..."
-  winget install -e --id $id --accept-source-agreements --accept-package-agreements --silent 2>&1 | Out-Null
-  if ($LASTEXITCODE -eq 0 -or $LASTEXITCODE -eq -1978335189) {
+  try {
+    winget install -e --id $id --accept-source-agreements --accept-package-agreements --silent 2>&1 | Out-Null
+    $rc = $LASTEXITCODE
+  } catch {
+    Add-Result $display '失败' "winget 无法启动（$($_.Exception.Message)）；可手动 winget install -e --id $id"
+    return
+  }
+  if ($rc -eq 0 -or $rc -eq -1978335189) {
     # -1978335189 = 已安装最新版
     Add-Result $display '成功' $id
   } else {
-    Add-Result $display '失败' "winget 退出码 $LASTEXITCODE"
+    Add-Result $display '失败' "winget 退出码 $rc"
   }
 }
 
@@ -160,10 +166,14 @@ function Show-Doctor {
       Write-Host ("  [缺]   {0,-12} 未检测到" -f $t.name) -ForegroundColor Yellow
     }
   }
-  # CC Switch 是 GUI 应用，查 winget 列表
-  $cc = winget list -e --id farion1231.CC-Switch 2>$null | Select-String 'CC-Switch'
-  if ($cc) { Write-Host "  [OK]   CC Switch    已安装" -ForegroundColor Green }
-  else     { Write-Host "  [缺]   CC Switch    未检测到" -ForegroundColor Yellow }
+  # CC Switch 是 GUI 应用，查 winget 列表（winget 在非交互会话可能拒绝访问，优雅降级）
+  try {
+    $cc = winget list -e --id farion1231.CC-Switch 2>$null | Select-String 'CC-Switch'
+    if ($cc) { Write-Host "  [OK]   CC Switch    已安装" -ForegroundColor Green }
+    else     { Write-Host "  [缺]   CC Switch    未检测到" -ForegroundColor Yellow }
+  } catch {
+    Write-Host "  [?]    CC Switch    无法查询（winget 在当前会话不可用，请手动确认）" -ForegroundColor Yellow
+  }
 }
 
 # ===== 主流程 =====
