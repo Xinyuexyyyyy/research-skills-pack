@@ -202,14 +202,40 @@ function Install-OpenCove {
 
   $url = $asset.browser_download_url
   $out = Join-Path $env:TEMP $asset.name
+  # 国内访问 GitHub 下载常慢/断；按顺序尝试原站 + 加速镜像
+  $sources = @($url, "https://ghproxy.com/$url", "https://mirror.ghproxy.com/$url")
   Write-Host "  下载 $($asset.name)（$([math]::Round($asset.size/1MB,1)) MB）..."
-  $dl = Invoke-WithRetry -Label 'OpenCove下载' -Action {
-    Invoke-WebRequest -Uri $url -OutFile $out -TimeoutSec 600 -UseBasicParsing
-    (Test-Path $out) -and ((Get-Item $out).Length -gt 0)
+  $dl = $false
+  foreach ($src in $sources) {
+    Write-Host "    源：$src"
+    $dl = Invoke-WithRetry -Label 'OpenCove下载' -Max 2 -Action {
+      Invoke-WebRequest -Uri $src -OutFile $out -TimeoutSec 600 -UseBasicParsing
+      (Test-Path $out) -and ((Get-Item $out).Length -gt 0)
+    }
+    if ($dl) { break }
   }
   if (-not $dl) {
-    Add-Result 'OpenCove' '失败' "下载多次失败（网络问题）；可手动下载 $url"
+    Add-Result 'OpenCove' '失败' "原站与镜像均下载失败（网络问题）；可手动下载 $url"
     return
+  }
+
+  # SHA256 校验（release 含 SHA256SUMS.txt）：防下出半截/损坏文件
+  $sumAsset = $rel.assets | Where-Object { $_.name -eq 'SHA256SUMS.txt' } | Select-Object -First 1
+  if ($sumAsset) {
+    try {
+      $sums = Invoke-RestMethod -Uri $sumAsset.browser_download_url -TimeoutSec 30
+      $line = ($sums -split "`n") | Where-Object { $_ -match [regex]::Escape($asset.name) } | Select-Object -First 1
+      $expect = (($line -split '\s+')[0]).ToLower()
+      $actual = (Get-FileHash $out -Algorithm SHA256).Hash.ToLower()
+      if ($expect -and $actual -ne $expect) {
+        Remove-Item $out -Force -ErrorAction SilentlyContinue
+        Add-Result 'OpenCove' '失败' 'SHA256 不匹配（文件损坏），已删除；请重跑'
+        return
+      }
+      Write-Host "  SHA256 校验通过" -ForegroundColor Green
+    } catch {
+      Write-Host "  SHA256 校验跳过（取校验和失败，不阻断安装）" -ForegroundColor DarkYellow
+    }
   }
 
   Write-Host "  静默安装 $($asset.name) ..."
