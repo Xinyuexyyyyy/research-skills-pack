@@ -228,36 +228,42 @@ function Install-OpenCove {
 
 # 第 7 步：装 skills —— 把 research-skills-pack 的 skill 复制进 Claude Code 的目录。
 # 与 OpenCove 无关：skills 是 Claude Code 的 SKILL.md，放 ~/.claude/skills/ 即被加载。
-# Windows 上用复制而非软链（建符号链接需管理员/开发者模式）。
+# 离线优先：skills 就在脚本旁边的 skills/ 目录，直接复制（零网络、零认证）；
+# 找不到才退回 git clone（私有仓库需凭据）。Windows 上用复制而非软链。
 function Install-Skills {
   $repo = 'https://github.com/Xinyuexyyyyy/research-skills-pack.git'
-  $work = Join-Path $env:TEMP 'research-skills-pack'
   $dest = Join-Path $env:USERPROFILE '.claude\skills'
+  $src  = $null
 
-  if (-not (Test-CommandExists 'git')) {
-    Add-Result 'Skills' '跳过' 'git 不可用，无法拉取'
-    return
-  }
-  # 拉取（已存在则更新）。私有仓库需 git 凭据；失败则给手动指引并退出。
-  Write-Host "  拉取 research-skills-pack ..."
-  $ok = Invoke-WithRetry -Label 'Skills拉取' -Max 2 -Action {
-    if (Test-Path (Join-Path $work '.git')) {
-      git -C $work pull --ff-only 2>&1 | Out-Null
-    } else {
+  # 1) 离线优先：脚本同目录下的 skills/
+  $localSkills = Join-Path $PSScriptRoot 'skills'
+  if (Test-Path $localSkills) {
+    $src = $localSkills
+    Write-Host "  发现脚本旁的 skills/（离线安装，无需联网）"
+  } else {
+    # 2) 退回：git clone 私有仓库
+    if (-not (Test-CommandExists 'git')) {
+      Add-Result 'Skills' '跳过' '脚本旁无 skills/ 且 git 不可用'
+      return
+    }
+    Write-Host "  脚本旁无 skills/，尝试 git clone ..."
+    $work = Join-Path $env:TEMP 'research-skills-pack'
+    $ok = Invoke-WithRetry -Label 'Skills拉取' -Max 2 -Action {
       Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
       git clone --depth 1 $repo $work 2>&1 | Out-Null
+      Test-Path (Join-Path $work 'skills')
     }
-    Test-Path (Join-Path $work 'skills')
-  }
-  if (-not $ok) {
-    Add-Result 'Skills' '失败' "拉取失败（私有仓库需先 gh auth login 或配置 git 凭据）；手动：git clone $repo"
-    return
+    if (-not $ok) {
+      Add-Result 'Skills' '失败' "脚本旁无 skills/，clone 也失败；把整个 research-skills-pack 文件夹拷到本机再跑即可离线安装"
+      return
+    }
+    $src = Join-Path $work 'skills'
   }
 
   # 复制每个 skill 到 ~/.claude/skills/（覆盖同名）
   if (-not (Test-Path $dest)) { New-Item -ItemType Directory -Path $dest -Force | Out-Null }
   $count = 0
-  Get-ChildItem (Join-Path $work 'skills') -Directory | ForEach-Object {
+  Get-ChildItem $src -Directory | ForEach-Object {
     Copy-Item $_.FullName (Join-Path $dest $_.Name) -Recurse -Force
     $count++
   }
