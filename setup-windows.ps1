@@ -1,8 +1,8 @@
 ﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
-  一键安装 AI 编码 CLI 工具链（Windows 10/11，x64）。
-  安装内容：Node.js LTS、Git、Claude Code、Codex CLI、CC Switch。
+  一键安装 AI 编码工具链（Windows 10/11，x64）。
+  安装内容：Node.js LTS、Git、Claude Code、Codex CLI、CC Switch、OpenCove、skills。
 
 .DESCRIPTION
   只负责"装"，不碰账号登录。装完后请手动运行 claude / codex 自行登录。
@@ -13,6 +13,8 @@
 .PARAMETER SkipClaude    跳过 Claude Code
 .PARAMETER SkipCodex     跳过 Codex CLI
 .PARAMETER SkipCCSwitch  跳过 CC Switch
+.PARAMETER SkipOpenCove  跳过 OpenCove（最新 nightly）
+.PARAMETER SkipSkills    跳过 skills（接入 Claude Code）
 .PARAMETER CheckOnly     只自检，不安装
 
 .EXAMPLE
@@ -224,7 +226,8 @@ function Install-OpenCove {
   if ($sumAsset) {
     try {
       $sums = Invoke-RestMethod -Uri $sumAsset.browser_download_url -TimeoutSec 30
-      $line = ($sums -split "`n") | Where-Object { $_ -match [regex]::Escape($asset.name) } | Select-Object -First 1
+      # 精确匹配"以该文件名结尾"的整行，避免误匹配 .exe.blockmap 那行
+      $line = ($sums -split "`n") | Where-Object { ($_ -split '\s+')[-1].Trim() -eq $asset.name } | Select-Object -First 1
       $expect = (($line -split '\s+')[0]).ToLower()
       $actual = (Get-FileHash $out -Algorithm SHA256).Hash.ToLower()
       if ($expect -and $actual -ne $expect) {
@@ -287,10 +290,13 @@ function Install-Skills {
   }
 
   # 复制每个 skill 到 ~/.claude/skills/（覆盖同名）
+  # 注意：Copy-Item 到"已存在的同名目录"会嵌套成 dest/x/x，所以先删目标再拷
   if (-not (Test-Path $dest)) { New-Item -ItemType Directory -Path $dest -Force | Out-Null }
   $count = 0
   Get-ChildItem $src -Directory | ForEach-Object {
-    Copy-Item $_.FullName (Join-Path $dest $_.Name) -Recurse -Force
+    $target = Join-Path $dest $_.Name
+    if (Test-Path $target) { Remove-Item $target -Recurse -Force }
+    Copy-Item $_.FullName $target -Recurse -Force
     $count++
   }
   Add-Result 'Skills' '成功' "$count 个 skill 已复制到 ~/.claude/skills/"
