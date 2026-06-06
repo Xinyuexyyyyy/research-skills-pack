@@ -35,6 +35,7 @@ param(
   [switch]$SkipCodex,
   [switch]$SkipCCSwitch,
   [switch]$SkipOpenCove,
+  [switch]$SkipSkills,
   [switch]$CheckOnly
 )
 
@@ -61,6 +62,24 @@ function Update-SessionPath {
 function Test-CommandExists($name) {
   Update-SessionPath
   $null -ne (Get-Command $name -ErrorAction SilentlyContinue)
+}
+
+# 网络操作通用重试：$Action 是脚本块，返回 $true=成功 / $false=失败（或抛异常）。
+# 最多 $Max 次，间隔递增（5s/10s/20s），专治不稳定网络下的偶发失败。
+function Invoke-WithRetry($Action, $Label, $Max = 3) {
+  for ($i = 1; $i -le $Max; $i++) {
+    try {
+      if (& $Action) { return $true }
+    } catch {
+      Write-Host "    [$Label] 第 $i 次出错：$($_.Exception.Message)" -ForegroundColor DarkYellow
+    }
+    if ($i -lt $Max) {
+      $wait = 5 * [math]::Pow(2, $i - 1)
+      Write-Host "    [$Label] 第 $i/$Max 次未成功，$wait 秒后重试 ..." -ForegroundColor DarkYellow
+      Start-Sleep -Seconds $wait
+    }
+  }
+  return $false
 }
 
 # 确认 winget 可用（Win10 1809+/Win11 自带；缺失则提示）
@@ -113,16 +132,17 @@ function Install-ClaudeCode {
     return
   }
   Write-Host "  运行官方安装脚本 (claude.ai/install.ps1) ..."
-  try {
-    Invoke-RestMethod -Uri 'https://claude.ai/install.ps1' | Invoke-Expression
+  $ok = Invoke-WithRetry -Label 'Claude Code' -Action {
+    Invoke-RestMethod -Uri 'https://claude.ai/install.ps1' -TimeoutSec 60 | Invoke-Expression
     Update-SessionPath
-    if (Test-CommandExists 'claude') {
-      Add-Result 'Claude Code' '成功' (claude --version)
-    } else {
-      Add-Result 'Claude Code' '需重开终端' '已安装，PATH 未刷新'
-    }
-  } catch {
-    Add-Result 'Claude Code' '失败' $_.Exception.Message
+    Test-CommandExists 'claude'
+  }
+  if ($ok) {
+    Add-Result 'Claude Code' '成功' (claude --version)
+  } elseif (Test-Path "$env:USERPROFILE\.local\bin\claude.exe") {
+    Add-Result 'Claude Code' '需重开终端' '已安装，PATH 未刷新'
+  } else {
+    Add-Result 'Claude Code' '失败' '下载/安装多次失败；可手动 irm https://claude.ai/install.ps1 | iex'
   }
 }
 
@@ -136,12 +156,24 @@ function Install-Codex {
     return
   }
   Write-Host "  npm 全局安装 @openai/codex ..."
-  npm install -g @openai/codex 2>&1 | Out-Null
-  Update-SessionPath
-  if (Test-CommandExists 'codex') {
+  $ok = Invoke-WithRetry -Label 'Codex' -Action {
+    npm install -g @openai/codex 2>&1 | Out-Null
+    Update-SessionPath
+    Test-CommandExists 'codex'
+  }
+  # 默认源装不上（常见于国内网络），换淘宝镜像再试一轮
+  if (-not $ok) {
+    Write-Host "  默认源失败，改用淘宝镜像 registry.npmmirror.com 重试 ..." -ForegroundColor DarkYellow
+    $ok = Invoke-WithRetry -Label 'Codex(镜像)' -Max 2 -Action {
+      npm install -g @openai/codex --registry=https://registry.npmmirror.com 2>&1 | Out-Null
+      Update-SessionPath
+      Test-CommandExists 'codex'
+    }
+  }
+  if ($ok) {
     Add-Result 'Codex CLI' '成功' (codex --version)
   } else {
-    Add-Result 'Codex CLI' '失败' "npm 退出码 $LASTEXITCODE"
+    Add-Result 'Codex CLI' '失败' '默认源与镜像均失败；可手动 npm install -g @openai/codex'
   }
 }
 
@@ -171,10 +203,12 @@ function Install-OpenCove {
   $url = $asset.browser_download_url
   $out = Join-Path $env:TEMP $asset.name
   Write-Host "  下载 $($asset.name)（$([math]::Round($asset.size/1MB,1)) MB）..."
-  try {
+  $dl = Invoke-WithRetry -Label 'OpenCove下载' -Action {
     Invoke-WebRequest -Uri $url -OutFile $out -TimeoutSec 600 -UseBasicParsing
-  } catch {
-    Add-Result 'OpenCove' '失败' "下载失败：$($_.Exception.Message)"
+    (Test-Path $out) -and ((Get-Item $out).Length -gt 0)
+  }
+  if (-not $dl) {
+    Add-Result 'OpenCove' '失败' "下载多次失败（网络问题）；可手动下载 $url"
     return
   }
 
@@ -190,6 +224,44 @@ function Install-OpenCove {
   } catch {
     Add-Result 'OpenCove' '失败' "启动安装器失败：$($_.Exception.Message)；包在 $out"
   }
+}
+
+# 第 7 步：装 skills —— 把 research-skills-pack 的 skill 复制进 Claude Code 的目录。
+# 与 OpenCove 无关：skills 是 Claude Code 的 SKILL.md，放 ~/.claude/skills/ 即被加载。
+# Windows 上用复制而非软链（建符号链接需管理员/开发者模式）。
+function Install-Skills {
+  $repo = 'https://github.com/Xinyuexyyyyy/research-skills-pack.git'
+  $work = Join-Path $env:TEMP 'research-skills-pack'
+  $dest = Join-Path $env:USERPROFILE '.claude\skills'
+
+  if (-not (Test-CommandExists 'git')) {
+    Add-Result 'Skills' '跳过' 'git 不可用，无法拉取'
+    return
+  }
+  # 拉取（已存在则更新）。私有仓库需 git 凭据；失败则给手动指引并退出。
+  Write-Host "  拉取 research-skills-pack ..."
+  $ok = Invoke-WithRetry -Label 'Skills拉取' -Max 2 -Action {
+    if (Test-Path (Join-Path $work '.git')) {
+      git -C $work pull --ff-only 2>&1 | Out-Null
+    } else {
+      Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
+      git clone --depth 1 $repo $work 2>&1 | Out-Null
+    }
+    Test-Path (Join-Path $work 'skills')
+  }
+  if (-not $ok) {
+    Add-Result 'Skills' '失败' "拉取失败（私有仓库需先 gh auth login 或配置 git 凭据）；手动：git clone $repo"
+    return
+  }
+
+  # 复制每个 skill 到 ~/.claude/skills/（覆盖同名）
+  if (-not (Test-Path $dest)) { New-Item -ItemType Directory -Path $dest -Force | Out-Null }
+  $count = 0
+  Get-ChildItem (Join-Path $work 'skills') -Directory | ForEach-Object {
+    Copy-Item $_.FullName (Join-Path $dest $_.Name) -Recurse -Force
+    $count++
+  }
+  Add-Result 'Skills' '成功' "$count 个 skill 已复制到 ~/.claude/skills/"
 }
 
 function Show-Doctor {
@@ -237,8 +309,8 @@ function Show-Doctor {
 # ===== 主流程 =====
 Write-Host "========================================================"
 Write-Host "  AI 编码 CLI 工具链安装器 (Windows)"
-Write-Host "  装: Node.js / Git / Claude Code / Codex CLI / CC Switch / OpenCove"
-Write-Host "  说明: 只负责安装，不处理账号登录；OpenCove 最后装（最新 nightly）"
+Write-Host "  装: Node.js / Git / Claude Code / Codex CLI / CC Switch / OpenCove / skills"
+Write-Host "  说明: 只负责安装，不处理账号登录；OpenCove 最后装（最新 nightly），再接 skills"
 Write-Host "========================================================"
 
 if ($CheckOnly) { Show-Doctor; return }
@@ -247,14 +319,16 @@ if (-not [Environment]::Is64BitOperatingSystem) {
   Write-Host "警告: 检测到非 64 位系统，部分组件可能不支持。" -ForegroundColor Yellow
 }
 
-$total = 6
+$total = 7
 if (-not $SkipNode)     { Write-Step 1 $total '安装 Node.js LTS';   Install-Node }     else { Add-Result 'Node.js' '跳过' '--SkipNode' }
 if (-not $SkipGit)      { Write-Step 2 $total '安装 Git';            Install-Git }      else { Add-Result 'Git' '跳过' '--SkipGit' }
 if (-not $SkipClaude)   { Write-Step 3 $total '安装 Claude Code';    Install-ClaudeCode } else { Add-Result 'Claude Code' '跳过' '--SkipClaude' }
 if (-not $SkipCodex)    { Write-Step 4 $total '安装 Codex CLI';      Install-Codex }    else { Add-Result 'Codex CLI' '跳过' '--SkipCodex' }
 if (-not $SkipCCSwitch) { Write-Step 5 $total '安装 CC Switch';      Install-CCSwitch } else { Add-Result 'CC Switch' '跳过' '--SkipCCSwitch' }
-# OpenCove 放最后：它最重（下载+安装），且失败不应影响前面的 CLI 工具链
+# OpenCove 放最后的应用安装：它最重（下载+安装），且失败不应影响前面的 CLI 工具链
 if (-not $SkipOpenCove) { Write-Step 6 $total '安装 OpenCove (最新 nightly)'; Install-OpenCove } else { Add-Result 'OpenCove' '跳过' '--SkipOpenCove' }
+# 第 7 步：装 skills（接入 Claude Code），放在所有软件之后
+if (-not $SkipSkills)   { Write-Step 7 $total '安装 skills (接入 Claude Code)'; Install-Skills } else { Add-Result 'Skills' '跳过' '--SkipSkills' }
 
 # ===== 结果汇总 =====
 Write-Host ""
