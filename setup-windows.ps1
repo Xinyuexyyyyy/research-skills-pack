@@ -34,6 +34,7 @@ param(
   [switch]$SkipClaude,
   [switch]$SkipCodex,
   [switch]$SkipCCSwitch,
+  [switch]$SkipOpenCove,
   [switch]$CheckOnly
 )
 
@@ -148,6 +149,49 @@ function Install-CCSwitch {
   Install-ViaWinget 'farion1231.CC-Switch' 'CC Switch'
 }
 
+# OpenCove：上游每天出 nightly 预发布，含现成 win-x64.exe。
+# 这里动态抓最新 nightly 的 .exe 静默安装，不写死版本（始终最新夜间版）。
+# 放在最后安装：它最重，且失败不应影响前面的 CLI 工具链。
+function Install-OpenCove {
+  $repo = 'DeadWaveWave/opencove'
+  Write-Host "  查询 $repo 最新 nightly 版本 ..."
+  try {
+    $headers = @{ 'User-Agent' = 'setup-windows-ps1'; 'Accept' = 'application/vnd.github+json' }
+    # 取最新一个 release（nightly 是 prerelease，列表按时间倒序，第一个即最新）
+    $rel = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases?per_page=1" -Headers $headers -TimeoutSec 20
+    $rel = $rel | Select-Object -First 1
+    if (-not $rel) { Add-Result 'OpenCove' '失败' '未取到任何 release'; return }
+    $asset = $rel.assets | Where-Object { $_.name -match 'win-x64\.exe$' } | Select-Object -First 1
+    if (-not $asset) { Add-Result 'OpenCove' '失败' "release $($rel.tag_name) 无 win-x64.exe 资产"; return }
+  } catch {
+    Add-Result 'OpenCove' '失败' "查询 release 失败：$($_.Exception.Message)"
+    return
+  }
+
+  $url = $asset.browser_download_url
+  $out = Join-Path $env:TEMP $asset.name
+  Write-Host "  下载 $($asset.name)（$([math]::Round($asset.size/1MB,1)) MB）..."
+  try {
+    Invoke-WebRequest -Uri $url -OutFile $out -TimeoutSec 600 -UseBasicParsing
+  } catch {
+    Add-Result 'OpenCove' '失败' "下载失败：$($_.Exception.Message)"
+    return
+  }
+
+  Write-Host "  静默安装 $($asset.name) ..."
+  try {
+    # electron-builder NSIS 安装包：/S 静默
+    $p = Start-Process -FilePath $out -ArgumentList '/S' -Wait -PassThru
+    if ($p.ExitCode -eq 0) {
+      Add-Result 'OpenCove' '成功' "$($rel.tag_name)（最新 nightly）"
+    } else {
+      Add-Result 'OpenCove' '需手动' "安装器退出码 $($p.ExitCode)，安装包在 $out"
+    }
+  } catch {
+    Add-Result 'OpenCove' '失败' "启动安装器失败：$($_.Exception.Message)；包在 $out"
+  }
+}
+
 function Show-Doctor {
   Write-Host ""
   Write-Host "===== 自检：当前已装情况 =====" -ForegroundColor Cyan
@@ -174,13 +218,27 @@ function Show-Doctor {
   } catch {
     Write-Host "  [?]    CC Switch    无法查询（winget 在当前会话不可用，请手动确认）" -ForegroundColor Yellow
   }
+  # OpenCove：查注册表卸载项（electron-builder NSIS 安装会写入），不依赖 winget
+  try {
+    $keys = @(
+      'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
+      'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
+      'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
+    )
+    $oc = Get-ItemProperty $keys -ErrorAction SilentlyContinue |
+          Where-Object { $_.DisplayName -match 'OpenCove' } | Select-Object -First 1
+    if ($oc) { Write-Host ("  [OK]   OpenCove     " + $oc.DisplayVersion) -ForegroundColor Green }
+    else     { Write-Host "  [缺]   OpenCove     未检测到" -ForegroundColor Yellow }
+  } catch {
+    Write-Host "  [?]    OpenCove     无法查询" -ForegroundColor Yellow
+  }
 }
 
 # ===== 主流程 =====
 Write-Host "========================================================"
 Write-Host "  AI 编码 CLI 工具链安装器 (Windows)"
-Write-Host "  装: Node.js / Git / Claude Code / Codex CLI / CC Switch"
-Write-Host "  说明: 只负责安装，不处理账号登录"
+Write-Host "  装: Node.js / Git / Claude Code / Codex CLI / CC Switch / OpenCove"
+Write-Host "  说明: 只负责安装，不处理账号登录；OpenCove 最后装（最新 nightly）"
 Write-Host "========================================================"
 
 if ($CheckOnly) { Show-Doctor; return }
@@ -189,12 +247,14 @@ if (-not [Environment]::Is64BitOperatingSystem) {
   Write-Host "警告: 检测到非 64 位系统，部分组件可能不支持。" -ForegroundColor Yellow
 }
 
-$total = 5
+$total = 6
 if (-not $SkipNode)     { Write-Step 1 $total '安装 Node.js LTS';   Install-Node }     else { Add-Result 'Node.js' '跳过' '--SkipNode' }
 if (-not $SkipGit)      { Write-Step 2 $total '安装 Git';            Install-Git }      else { Add-Result 'Git' '跳过' '--SkipGit' }
 if (-not $SkipClaude)   { Write-Step 3 $total '安装 Claude Code';    Install-ClaudeCode } else { Add-Result 'Claude Code' '跳过' '--SkipClaude' }
 if (-not $SkipCodex)    { Write-Step 4 $total '安装 Codex CLI';      Install-Codex }    else { Add-Result 'Codex CLI' '跳过' '--SkipCodex' }
 if (-not $SkipCCSwitch) { Write-Step 5 $total '安装 CC Switch';      Install-CCSwitch } else { Add-Result 'CC Switch' '跳过' '--SkipCCSwitch' }
+# OpenCove 放最后：它最重（下载+安装），且失败不应影响前面的 CLI 工具链
+if (-not $SkipOpenCove) { Write-Step 6 $total '安装 OpenCove (最新 nightly)'; Install-OpenCove } else { Add-Result 'OpenCove' '跳过' '--SkipOpenCove' }
 
 # ===== 结果汇总 =====
 Write-Host ""
