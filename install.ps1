@@ -1,4 +1,4 @@
-﻿#Requires -Version 5.1
+#Requires -Version 5.1
 <#
 .SYNOPSIS
   一键接入：从公开 GitHub tarball 装 research-skills-pack 的 24 个 skill +
