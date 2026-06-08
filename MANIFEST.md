@@ -10,7 +10,7 @@ research-skills-pack/
 ├── doctor.py            一键自检：跑它就知道装好没、缺什么
 ├── MANIFEST.md          本文件（锁死的事实层）
 ├── README.md            人看的入口：这是什么、怎么接入
-├── skills/              22 个 skill（已清理，可共享，按三层组织）
+├── skills/              24 个 skill（已清理，可共享，按四层组织）
 │   │  ── 调研层（15）──
 │   ├── topic-framing/        领域 → 可研究题目
 │   ├── research-ideation/    研究想法生成/发散
@@ -35,7 +35,11 @@ research-skills-pack/
 │   │  ── 输出层（3）──
 │   ├── output-layer/         公共输出层（MD/PDF/Obsidian/PPT 渲染）
 │   ├── output-polisher/      排版与导出润色
-│   └── output-style-checker/ 规则检查与评测闸门（含 regression 夹具）
+│   ├── output-style-checker/ 规则检查与评测闸门（含 regression 夹具）
+│   │  ── 工作区层（2）──
+│   ├── workspace-init/       搭工作区一级目录骨架（只新建不覆盖）
+│   └── workspace-tidy/       整理跑乱的工作区（出方案→确认→才移动）
+├── skills/workspace-layout.md  工作区目录约定（init/tidy 的单一事实源）
 ├── shared/
 │   └── research-base/       地基：学术 skill 的 schema 底座
 └── tools/                   跨 skill 复用的工具
