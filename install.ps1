@@ -44,6 +44,39 @@ function Install-Skills($srcDir, $destDir) {
   return $c
 }
 
+function Install-PptDeps {
+  # 装 ppt-master 的 Python 依赖（从公开仓库 hugohe3/ppt-master 拉 requirements）。
+  # 只装 Python 依赖；pandoc 是可选项（仅转 .doc/.tex 等小众格式才需要），不在此装。
+  # 任何失败都只警告、不中断整体安装。
+  $py = $null
+  foreach ($cand in @('python','python3','py')) {
+    if (Get-Command $cand -ErrorAction SilentlyContinue) { $py = $cand; break }
+  }
+  if (-not $py) {
+    Write-Host "  ⚠ 未检测到 Python，跳过 ppt-master 依赖。装 Python 3.10+ 后重跑即可。" -ForegroundColor Yellow
+    return $false
+  }
+  $req = Join-Path $env:TEMP ("ppt-req-" + [System.IO.Path]::GetRandomFileName() + ".txt")
+  try {
+    # 直接拉嵌套那份（自包含、列了所有真实包，避免根目录转发的相对路径断裂）
+    Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/hugohe3/ppt-master/main/skills/ppt-master/requirements.txt' -OutFile $req -TimeoutSec 60 -UseBasicParsing
+    Write-Host "  用 $py 装 ppt-master 依赖（python-pptx / Pillow / PyMuPDF 等）..." -ForegroundColor Cyan
+    & $py -m pip install -r $req --quiet --disable-pip-version-check 2>&1 | Out-Null
+    if ($LASTEXITCODE -eq 0) {
+      Write-Host "  ✓ ppt-master Python 依赖已装" -ForegroundColor Green
+      return $true
+    } else {
+      Write-Host "  ⚠ pip 装依赖返回非0，可手动重试：$py -m pip install -r <ppt-master>/requirements.txt" -ForegroundColor Yellow
+      return $false
+    }
+  } catch {
+    Write-Host ("  ⚠ 拉/装 ppt-master 依赖失败：" + $_.Exception.Message) -ForegroundColor Yellow
+    return $false
+  } finally {
+    if (Test-Path $req) { Remove-Item $req -Force -ErrorAction SilentlyContinue }
+  }
+}
+
 Write-Host "========================================================"
 Write-Host "  research-skills-pack 一键接入（公开 tarball，零认证）"
 Write-Host "========================================================"
@@ -88,12 +121,18 @@ if (-not (Test-Path $tmpl)) {
   Write-Host "  ✓ 骨架：新建 $made 个文件，跳过 $skipped 个已存在" -ForegroundColor Green
 }
 
+# ===== 第 3 件：装 ppt-master Python 依赖（可选能力，失败不阻断）=====
+Write-Host ""
+Write-Host "[3/3] 安装 ppt-master Python 依赖" -ForegroundColor Cyan
+$pptOk = Install-PptDeps
+
 # ===== 收尾 =====
 Write-Host ""
 Write-Host "===== 完成 =====" -ForegroundColor Cyan
 Write-Host "  • 工作区 skills/        → $nWs 个（Codex）"
 Write-Host "  • 全局 ~/.claude/skills → $nG 个（Claude Code）"
 Write-Host "  • 工作区骨架            → .claude/memory 6文件 + MEMORY.md + CLAUDE.md + AGENTS.md"
+Write-Host ("  • ppt-master 依赖       → " + $(if ($pptOk) { '已装' } else { '未装（见上方提示）' }))
 Write-Host ""
 Write-Host "下一步：" -ForegroundColor Cyan
 Write-Host "  1. 编辑 .claude/memory/workspace-brief.md，写明这个工作区是干什么的"

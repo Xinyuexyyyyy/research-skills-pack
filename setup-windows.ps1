@@ -15,6 +15,7 @@
 .PARAMETER SkipCCSwitch  跳过 CC Switch
 .PARAMETER SkipOpenCove  跳过 OpenCove（最新 nightly）
 .PARAMETER SkipSkills    跳过 skills（接入 Claude Code）
+.PARAMETER SkipPptDeps   跳过 ppt-master Python 依赖（python-pptx 等；pandoc 不在此装）
 .PARAMETER CheckOnly     只自检，不安装
 
 .EXAMPLE
@@ -38,6 +39,7 @@ param(
   [switch]$SkipCCSwitch,
   [switch]$SkipOpenCove,
   [switch]$SkipSkills,
+  [switch]$SkipPptDeps,
   [switch]$CheckOnly
 )
 
@@ -302,6 +304,33 @@ function Install-Skills {
   Add-Result 'Skills' '成功' "$count 个 skill 已复制到 ~/.claude/skills/"
 }
 
+function Install-PptDeps {
+  # 装 ppt-master 的 Python 依赖（从公开仓库 hugohe3/ppt-master 拉 requirements）。
+  # 只装 Python 依赖；pandoc 是可选项（仅转 .doc/.tex 等小众格式才需要），不在此装。
+  $py = $null
+  foreach ($cand in @('python','python3','py')) {
+    if (Test-CommandExists $cand) { $py = $cand; break }
+  }
+  if (-not $py) {
+    Add-Result 'PPT依赖' '跳过' '未检测到 Python，装 Python 3.10+ 后重跑 -SkipNode -SkipGit ... 仅补这步'
+    return
+  }
+  $req = Join-Path $env:TEMP ("ppt-req-" + [System.IO.Path]::GetRandomFileName() + ".txt")
+  try {
+    Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/hugohe3/ppt-master/main/skills/ppt-master/requirements.txt' -OutFile $req -TimeoutSec 60 -UseBasicParsing
+    & $py -m pip install -r $req --quiet --disable-pip-version-check 2>&1 | Out-Null
+    if ($LASTEXITCODE -eq 0) {
+      Add-Result 'PPT依赖' '成功' "ppt-master Python 依赖已装（python-pptx/Pillow/PyMuPDF 等）"
+    } else {
+      Add-Result 'PPT依赖' '失败' "pip 返回非0；手动重试：$py -m pip install -r <ppt-master>/requirements.txt"
+    }
+  } catch {
+    Add-Result 'PPT依赖' '失败' ("拉/装依赖出错：" + $_.Exception.Message)
+  } finally {
+    if (Test-Path $req) { Remove-Item $req -Force -ErrorAction SilentlyContinue }
+  }
+}
+
 function Show-Doctor {
   Write-Host ""
   Write-Host "===== 自检：当前已装情况 =====" -ForegroundColor Cyan
@@ -357,7 +386,7 @@ if (-not [Environment]::Is64BitOperatingSystem) {
   Write-Host "警告: 检测到非 64 位系统，部分组件可能不支持。" -ForegroundColor Yellow
 }
 
-$total = 7
+$total = 8
 if (-not $SkipNode)     { Write-Step 1 $total '安装 Node.js LTS';   Install-Node }     else { Add-Result 'Node.js' '跳过' '--SkipNode' }
 if (-not $SkipGit)      { Write-Step 2 $total '安装 Git';            Install-Git }      else { Add-Result 'Git' '跳过' '--SkipGit' }
 if (-not $SkipClaude)   { Write-Step 3 $total '安装 Claude Code';    Install-ClaudeCode } else { Add-Result 'Claude Code' '跳过' '--SkipClaude' }
@@ -367,6 +396,7 @@ if (-not $SkipCCSwitch) { Write-Step 5 $total '安装 CC Switch';      Install-C
 if (-not $SkipOpenCove) { Write-Step 6 $total '安装 OpenCove (最新 nightly)'; Install-OpenCove } else { Add-Result 'OpenCove' '跳过' '--SkipOpenCove' }
 # 第 7 步：装 skills（接入 Claude Code），放在所有软件之后
 if (-not $SkipSkills)   { Write-Step 7 $total '安装 skills (接入 Claude Code)'; Install-Skills } else { Add-Result 'Skills' '跳过' '--SkipSkills' }
+if (-not $SkipPptDeps)  { Write-Step 8 $total '安装 ppt-master Python 依赖'; Install-PptDeps } else { Add-Result 'PPT依赖' '跳过' '--SkipPptDeps' }
 
 # ===== 结果汇总 =====
 Write-Host ""
