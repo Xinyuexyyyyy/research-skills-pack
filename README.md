@@ -5,7 +5,7 @@
 
 ## 这是什么
 
-22 个已清理（无密钥、无个人数据、无硬编码路径）的 skill，按**三层工作范式**组织：
+24 个已清理（无密钥、无个人数据、无硬编码路径）的 skill，按**四层工作范式**组织：
 
 > 一套完整工作流：**调研**搞清楚 → **任务执行**把活拆开做 → **输出**成稿交付。
 
@@ -46,12 +46,34 @@
 | **output-polisher** | 排版与导出润色 |
 | **output-style-checker** | 规则检查与评测闸门 |
 
+### 第四层 · 工作区层（2）— 搭工作区、保持整洁
+
+| Skill | 一句话 |
+|---|---|
+| **workspace-init** | 搭工作区一级目录骨架（基于范式，只新建不覆盖）|
+| **workspace-tidy** | 整理跑乱的工作区（扫描→出方案→你确认→才移动，绝不自动删）|
 
 
-## Windows 一键装环境（给新电脑用）
 
-新 Windows 电脑上想跑 Claude Code / Codex，先装工具链。仓库自带 `setup-windows.ps1`，
-自动装 **Node.js + Git + Claude Code + Codex CLI + CC Switch**（只负责装，不碰账号登录）：
+## 一键接入工作区（最省事，零认证零 git）
+
+已经有 Claude Code / Codex 环境，只想把这套 skill 接进**当前目录**当工作区？在目标目录里跑一行（PowerShell）：
+
+```powershell
+irm https://raw.githubusercontent.com/Xinyuexyyyyy/research-skills-pack/main/install.ps1 | iex
+```
+
+它做三件事，全程走公开 tarball，不用登录、不用 git：
+
+1. 装 24 个 skill 到**两个位置**：当前工作区的 `skills/`（Codex 从这里读）+ `~/.claude/skills/`（Claude Code 从这里读）——两个工具读的地方不同，都覆盖到；
+2. 铺工作区骨架：`.claude/memory/` 6 文件 + `MEMORY.md` + `CLAUDE.md` + `AGENTS.md`（已存在的不覆盖）；
+3. 装 **ppt-master 的 Python 依赖**（python-pptx / Pillow / PyMuPDF 等，从公开仓库拉；pandoc 是可选项不自动装）。
+
+> 跑完在当前目录开 Claude Code 或 Codex，两边都能读到 skills 和记忆。
+
+## Windows 一键装环境（新电脑、从零开始）
+
+如果是**全新 Windows**，连 Node / Git / Claude Code 都还没有——先用 `setup-windows.ps1` 把整套工具链装齐。它比上面的 `install.ps1` 管得更多：
 
 ```powershell
 # 在 PowerShell 里运行（被执行策略拦住就用这行）
@@ -61,8 +83,10 @@ powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
 powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1 -CheckOnly
 ```
 
-装完按脚本末尾提示**手动登录**：重开 PowerShell → `claude`（浏览器登录）→ `codex`（登录）→ 打开 CC Switch 配供应商。
-单独跳过某项用 `-SkipNode` / `-SkipCodex` 等开关。要求 Windows 10/11 x64、自带 winget。
+自动装 **Node.js + Git + Claude Code + Codex CLI + CC Switch + OpenCove + skills + ppt-master 依赖**（只负责装，不碰账号登录）。装完按脚本末尾提示**手动登录**：重开 PowerShell → `claude`（浏览器登录）→ `codex`（登录）→ 打开 CC Switch 配供应商。
+单独跳过某项用 `-SkipNode` / `-SkipCodex` / `-SkipPptDeps` 等开关。要求 Windows 10/11 x64、自带 winget。
+
+> **两个脚本怎么选**：已有环境、只接 skill 到某目录 → 用 `install.ps1`（一行 irm）；全新电脑、要从零装工具链 → 用 `setup-windows.ps1`。两者都会装 skill 和 ppt 依赖，不会互相冲突。
 
 ## 30 秒上手
 

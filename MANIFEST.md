@@ -77,6 +77,13 @@ research-skills-pack/
 | output-layer | Python 标准库 | pandoc / wkhtmltopdf / Node 工具链（用到才装） | 无 |
 | output-polisher | Node.js | — | 无 |
 | output-style-checker | Node.js | textlint / promptfoo（`npm install` 自行装） | 无 |
+| workspace-init | 无 | 读 ../workspace-layout.md | 无 |
+| workspace-tidy | 无 | 读 ../workspace-layout.md | 无 |
+
+> **ppt-master 依赖**：`install.ps1` / `setup-windows.ps1` 会自动从公开仓库
+> `hugohe3/ppt-master` 拉 `requirements.txt` 装 **Python 依赖**（python-pptx / Pillow /
+> PyMuPDF 等），用 `-SkipPptDeps` 可跳过。**pandoc 不自动装**——它按官方文档是可选项，
+> 仅在转 `.doc/.odt/.rtf/.tex` 等小众格式时才需要，常见 `.docx/.html/.epub/.ipynb` 纯 Python 即可。
 
 ## 三、接入步骤（锁死，照做即可）
 
