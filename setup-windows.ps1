@@ -522,11 +522,6 @@ if (-not [Environment]::Is64BitOperatingSystem) {
   Write-Host "警告: 检测到非 64 位系统，部分组件可能不支持。" -ForegroundColor Yellow
 }
 
-# 前置：确保 winget 可用（Node/Git/CC Switch 都依赖它）。不计入 8 步，失败不阻断后续。
-Write-Host ""
-Write-Host "[前置] 确保 winget 可用" -ForegroundColor Cyan
-Install-Winget
-
 $total = 8
 if (-not $SkipNode)     { Write-Step 1 $total '安装 Node.js LTS';   Install-Node }     else { Add-Result 'Node.js' '跳过' '--SkipNode' }
 if (-not $SkipGit)      { Write-Step 2 $total '安装 Git';            Install-Git }      else { Add-Result 'Git' '跳过' '--SkipGit' }
