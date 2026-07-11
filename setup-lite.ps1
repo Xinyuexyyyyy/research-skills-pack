@@ -35,10 +35,29 @@ param(
   [switch]$SkipClaude,
   [switch]$SkipSwitch,
   [switch]$SkipSkills,
+  [string]$Proxy,
   [switch]$CheckOnly
 )
 
 $ErrorActionPreference = 'Stop'
+
+# ===== 代理支持（国内网络关键）=====
+# 未传 -Proxy 则自动读 Windows 系统代理；应用到 .NET / 环境变量。
+if (-not $Proxy) {
+  try {
+    $reg = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings' -ErrorAction SilentlyContinue
+    if ($reg.ProxyEnable -eq 1 -and $reg.ProxyServer) {
+      $Proxy = ($reg.ProxyServer -split ';' | Where-Object { $_ -notmatch '=' -or $_ -match 'http=' } | Select-Object -First 1) -replace '^http=',''
+    }
+  } catch {}
+}
+if ($Proxy) {
+  if ($Proxy -notmatch '^\w+://') { $Proxy = "http://$Proxy" }
+  $env:HTTP_PROXY = $Proxy; $env:HTTPS_PROXY = $Proxy
+  $env:http_proxy = $Proxy; $env:https_proxy = $Proxy
+  try { [System.Net.WebRequest]::DefaultWebProxy = New-Object System.Net.WebProxy($Proxy, $true) } catch {}
+  Write-Host "已启用代理：$Proxy" -ForegroundColor Green
+}
 
 # 装哪几个 skill：零依赖白名单
 $script:SkillWhitelist = @(

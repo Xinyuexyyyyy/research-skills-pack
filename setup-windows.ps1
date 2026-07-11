@@ -212,26 +212,21 @@ function Install-ClaudeCode {
     Add-Result 'Claude Code' '已装' (claude --version)
     return
   }
-  # 途径 1：官方安装脚本（有代理时通常可用；每次失败会打印报错）
-  Write-Host "  途径1：官方安装脚本 (claude.ai/install.ps1) ..."
-  $ok = Invoke-WithRetry -Label 'Claude Code(官方)' -Max 2 -Action {
-    Invoke-RestMethod -Uri 'https://claude.ai/install.ps1' -TimeoutSec 90 | Invoke-Expression
-    Update-SessionPath
-    Test-CommandExists 'claude'
-  }
-  # 途径 2：npm 装（默认源→淘宝镜像），国内更稳，需已装 Node/npm（本步在 Node 之后）
-  if (-not $ok -and (Test-CommandExists 'npm')) {
-    Write-Host "  途径2：npm 全局安装 @anthropic-ai/claude-code ..." -ForegroundColor DarkYellow
-    $ok = Invoke-WithRetry -Label 'Claude Code(npm)' -Max 2 -Action {
-      npm install -g @anthropic-ai/claude-code 2>&1 | Out-Null
+  $ok = $false
+  # 途径1（国内首选，真机实测最快最稳）：npm 淘宝镜像装。需 Node（步骤1已装）。
+  if (Test-CommandExists 'npm') {
+    Write-Host "  途径1：npm 淘宝镜像装 @anthropic-ai/claude-code ..."
+    $ok = Invoke-WithRetry -Label 'Claude Code(npm镜像)' -Max 2 -Action {
+      npm install -g @anthropic-ai/claude-code --registry=https://registry.npmmirror.com 2>&1 | Out-Null
       Update-SessionPath; Test-CommandExists 'claude'
     }
-    if (-not $ok) {
-      Write-Host "  途径2b：改用淘宝镜像 registry.npmmirror.com ..." -ForegroundColor DarkYellow
-      $ok = Invoke-WithRetry -Label 'Claude Code(npm镜像)' -Max 2 -Action {
-        npm install -g @anthropic-ai/claude-code --registry=https://registry.npmmirror.com 2>&1 | Out-Null
-        Update-SessionPath; Test-CommandExists 'claude'
-      }
+  }
+  # 途径2（兜底）：官方安装脚本，走代理时可用
+  if (-not $ok) {
+    Write-Host "  途径2：官方安装脚本 (claude.ai/install.ps1) ..." -ForegroundColor DarkYellow
+    $ok = Invoke-WithRetry -Label 'Claude Code(官方)' -Max 2 -Action {
+      Invoke-RestMethod -Uri 'https://claude.ai/install.ps1' -TimeoutSec 90 | Invoke-Expression
+      Update-SessionPath; Test-CommandExists 'claude'
     }
   }
   if ($ok) {
@@ -239,7 +234,7 @@ function Install-ClaudeCode {
   } elseif (Test-Path "$env:USERPROFILE\.local\bin\claude.exe") {
     Add-Result 'Claude Code' '需重开终端' '已安装，PATH 未刷新'
   } else {
-    Add-Result 'Claude Code' '失败' '官方脚本+npm 均失败（见上方各次报错）；手动: npm i -g @anthropic-ai/claude-code'
+    Add-Result 'Claude Code' '失败' 'npm镜像+官方脚本均失败（见上方报错）；手动: npm i -g @anthropic-ai/claude-code --registry=https://registry.npmmirror.com'
   }
 }
 
@@ -252,17 +247,17 @@ function Install-Codex {
     Add-Result 'Codex CLI' '已装' (codex --version)
     return
   }
-  Write-Host "  npm 全局安装 @openai/codex ..."
-  $ok = Invoke-WithRetry -Label 'Codex' -Action {
-    npm install -g @openai/codex 2>&1 | Out-Null
+  Write-Host "  npm 淘宝镜像安装 @openai/codex ..."
+  $ok = Invoke-WithRetry -Label 'Codex(镜像)' -Action {
+    npm install -g @openai/codex --registry=https://registry.npmmirror.com 2>&1 | Out-Null
     Update-SessionPath
     Test-CommandExists 'codex'
   }
-  # 默认源装不上（常见于国内网络），换淘宝镜像再试一轮
+  # 镜像失败再退回默认源
   if (-not $ok) {
-    Write-Host "  默认源失败，改用淘宝镜像 registry.npmmirror.com 重试 ..." -ForegroundColor DarkYellow
-    $ok = Invoke-WithRetry -Label 'Codex(镜像)' -Max 2 -Action {
-      npm install -g @openai/codex --registry=https://registry.npmmirror.com 2>&1 | Out-Null
+    Write-Host "  镜像失败，改用默认源 registry.npmjs.org 重试 ..." -ForegroundColor DarkYellow
+    $ok = Invoke-WithRetry -Label 'Codex(默认源)' -Max 2 -Action {
+      npm install -g @openai/codex 2>&1 | Out-Null
       Update-SessionPath
       Test-CommandExists 'codex'
     }
