@@ -161,22 +161,57 @@ function Install-ClaudeCode {
 }
 
 # ===== 2. CC Switch（winget）=====
+# 直连下载安装辅助（不依赖 winget）
+function Save-Download($url, $name) {
+  $tmp = Join-Path $env:TEMP ("dl-" + [System.IO.Path]::GetRandomFileName())
+  New-Item -ItemType Directory -Path $tmp -Force | Out-Null
+  $out = Join-Path $tmp $name
+  Invoke-WebRequest -Uri $url -OutFile $out -UseBasicParsing -TimeoutSec 600
+  return $out
+}
+function Get-GitHubAsset($repo, $pattern) {
+  $rel = Invoke-RestMethod "https://api.github.com/repos/$repo/releases/latest" -Headers @{ 'User-Agent' = 'setup-lite' } -TimeoutSec 120
+  ($rel.assets | Where-Object { $_.name -like $pattern } | Select-Object -First 1).browser_download_url
+}
+function Install-Msi($path) {
+  $p = Start-Process msiexec.exe -ArgumentList "/i `"$path`" /qn /norestart" -Wait -PassThru
+  return ($p.ExitCode -eq 0 -or $p.ExitCode -eq 3010)
+}
+function Install-CCSwitchDirect {
+  return (Invoke-WithRetry -Label 'CCSwitch直连' -Action {
+    $url = Get-GitHubAsset 'farion1231/cc-switch' 'CC-Switch-*-Windows.msi'   # x64；arm64 是 -Windows-arm64.msi 不命中
+    if (-not $url) { throw '未找到 CC Switch 安装包' }
+    $msi = Save-Download $url 'cc-switch.msi'
+    if (-not (Install-Msi $msi)) { throw 'msiexec 装 CC Switch 失败' }
+    return $true
+  })
+}
+
 function Install-CCSwitch {
-  $id = 'farion1231.CC-Switch'
-  if (-not (Install-Winget)) { Add-Result 'CC Switch' '跳过' 'winget 不可用（自举失败，见提示）'; return }
-  Write-Host "  winget 安装 CC Switch ($id) ..."
-  try {
-    winget install -e --id $id --accept-source-agreements --accept-package-agreements --silent 2>&1 | Out-Null
-    $rc = $LASTEXITCODE
-  } catch {
-    Add-Result 'CC Switch' '失败' "winget 无法启动（$($_.Exception.Message)）；可手动 winget install -e --id $id"
-    return
-  }
-  if ($rc -eq 0 -or $rc -eq -1978335189) {
-    # -1978335189 = 已安装最新版
-    Add-Result 'CC Switch' '成功' $id
+  # CC Switch 是 GUI 应用，不进 PATH：先查注册表卸载项判断是否已装
+  $installed = Get-ItemProperty @(
+    'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
+    'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
+    'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
+  ) -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -match 'CC.?Switch' } | Select-Object -First 1
+  if ($installed) { Add-Result 'CC Switch' '已装' $installed.DisplayVersion; return }
+
+  Write-Host "  下载 CC Switch 官方 MSI 直连安装 ..."
+  if (Install-CCSwitchDirect) { Add-Result 'CC Switch' '成功' '官方 MSI'; return }
+  # 兜底：若恰好有 winget 再试
+  if (Install-Winget) {
+    $id = 'farion1231.CC-Switch'
+    Write-Host "  改用 winget 安装 CC Switch ($id) ..."
+    try {
+      winget install -e --id $id --accept-source-agreements --accept-package-agreements --silent 2>&1 | Out-Null
+      $rc = $LASTEXITCODE
+    } catch {
+      Add-Result 'CC Switch' '失败' "winget 无法启动（$($_.Exception.Message)）"; return
+    }
+    if ($rc -eq 0 -or $rc -eq -1978335189) { Add-Result 'CC Switch' '成功' $id }
+    else { Add-Result 'CC Switch' '失败' "winget 退出码 $rc" }
   } else {
-    Add-Result 'CC Switch' '失败' "winget 退出码 $rc"
+    Add-Result 'CC Switch' '失败' '直连安装失败；可手动装 https://github.com/farion1231/cc-switch/releases'
   }
 }
 

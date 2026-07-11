@@ -112,13 +112,62 @@ function Install-ViaWinget($id, $display) {
   }
 }
 
+# ===== 直连下载安装辅助（不依赖 winget）=====
+function Save-Download($url, $name) {
+  $tmp = Join-Path $env:TEMP ("dl-" + [System.IO.Path]::GetRandomFileName())
+  New-Item -ItemType Directory -Path $tmp -Force | Out-Null
+  $out = Join-Path $tmp $name
+  Invoke-WebRequest -Uri $url -OutFile $out -UseBasicParsing -TimeoutSec 600
+  return $out
+}
+# 从 GitHub 最新 release 找匹配资产（$pattern 用 -like 通配）
+function Get-GitHubAsset($repo, $pattern) {
+  $rel = Invoke-RestMethod "https://api.github.com/repos/$repo/releases/latest" -Headers @{ 'User-Agent' = 'setup-windows' } -TimeoutSec 120
+  ($rel.assets | Where-Object { $_.name -like $pattern } | Select-Object -First 1).browser_download_url
+}
+# 静默装 MSI（0=成功，3010=成功需重启）
+function Install-Msi($path) {
+  $p = Start-Process msiexec.exe -ArgumentList "/i `"$path`" /qn /norestart" -Wait -PassThru
+  return ($p.ExitCode -eq 0 -or $p.ExitCode -eq 3010)
+}
+
+function Install-NodeDirect {
+  return (Invoke-WithRetry -Label 'Node直连' -Action {
+    $idx = Invoke-RestMethod 'https://nodejs.org/dist/index.json' -TimeoutSec 120
+    $lts = ($idx | Where-Object { $_.lts } | Select-Object -First 1).version   # 形如 v24.18.0
+    if (-not $lts) { throw '取不到 Node LTS 版本号' }
+    $msi = Save-Download "https://nodejs.org/dist/$lts/node-$lts-x64.msi" "node-$lts-x64.msi"
+    if (-not (Install-Msi $msi)) { throw 'msiexec 装 Node 失败' }
+    Update-SessionPath
+    Test-CommandExists 'node'
+  })
+}
+
 function Install-Node {
   if (Test-CommandExists 'node') {
     Add-Result 'Node.js' '已装' (node -v)
     return
   }
-  Install-ViaWinget 'OpenJS.NodeJS.LTS' 'Node.js'
-  Update-SessionPath
+  Write-Host "  下载官方 Node.js LTS MSI 直连安装 ..."
+  if (Install-NodeDirect) { Add-Result 'Node.js' '成功' (node -v); return }
+  # 兜底：若恰好有 winget 再试一把
+  if (Test-CommandExists 'winget') {
+    Install-ViaWinget 'OpenJS.NodeJS.LTS' 'Node.js'; Update-SessionPath
+  } else {
+    Add-Result 'Node.js' '失败' '直连安装失败；可手动装 https://nodejs.org/en/download'
+  }
+}
+
+function Install-GitDirect {
+  return (Invoke-WithRetry -Label 'Git直连' -Action {
+    $url = Get-GitHubAsset 'git-for-windows/git' '*64-bit.exe'
+    if (-not $url) { throw '未找到 Git for Windows 安装包' }
+    $exe = Save-Download $url 'git-setup.exe'
+    $p = Start-Process $exe -ArgumentList '/VERYSILENT /NORESTART /NOCANCEL /SP- /SUPPRESSMSGBOXES' -Wait -PassThru
+    if ($p.ExitCode -ne 0) { throw "Git 安装退出码 $($p.ExitCode)" }
+    Update-SessionPath
+    Test-CommandExists 'git'
+  })
 }
 
 function Install-Git {
@@ -126,8 +175,13 @@ function Install-Git {
     Add-Result 'Git' '已装' (git --version)
     return
   }
-  Install-ViaWinget 'Git.Git' 'Git'
-  Update-SessionPath
+  Write-Host "  下载 Git for Windows 官方安装包直连安装 ..."
+  if (Install-GitDirect) { Add-Result 'Git' '成功' (git --version); return }
+  if (Test-CommandExists 'winget') {
+    Install-ViaWinget 'Git.Git' 'Git'; Update-SessionPath
+  } else {
+    Add-Result 'Git' '失败' '直连安装失败；可手动装 https://git-scm.com/download/win'
+  }
 }
 
 function Install-ClaudeCode {
@@ -181,8 +235,33 @@ function Install-Codex {
   }
 }
 
+function Install-CCSwitchDirect {
+  return (Invoke-WithRetry -Label 'CCSwitch直连' -Action {
+    # 匹配 x64 的 CC-Switch-vX.Y.Z-Windows.msi（arm64 是 -Windows-arm64.msi，通配不会命中）
+    $url = Get-GitHubAsset 'farion1231/cc-switch' 'CC-Switch-*-Windows.msi'
+    if (-not $url) { throw '未找到 CC Switch 安装包' }
+    $msi = Save-Download $url 'cc-switch.msi'
+    if (-not (Install-Msi $msi)) { throw 'msiexec 装 CC Switch 失败' }
+    return $true
+  })
+}
+
 function Install-CCSwitch {
-  Install-ViaWinget 'farion1231.CC-Switch' 'CC Switch'
+  # CC Switch 是 GUI 应用，不进 PATH：先查注册表卸载项判断是否已装
+  $installed = Get-ItemProperty @(
+    'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
+    'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
+    'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
+  ) -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -match 'CC.?Switch' } | Select-Object -First 1
+  if ($installed) { Add-Result 'CC Switch' '已装' $installed.DisplayVersion; return }
+
+  Write-Host "  下载 CC Switch 官方 MSI 直连安装 ..."
+  if (Install-CCSwitchDirect) { Add-Result 'CC Switch' '成功' '官方 MSI'; return }
+  if (Test-CommandExists 'winget') {
+    Install-ViaWinget 'farion1231.CC-Switch' 'CC Switch'
+  } else {
+    Add-Result 'CC Switch' '失败' '直连安装失败；可手动装 https://github.com/farion1231/cc-switch/releases'
+  }
 }
 
 # OpenCove：上游每天出 nightly 预发布，含现成 win-x64.exe。
