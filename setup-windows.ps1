@@ -60,7 +60,7 @@ function Write-Step($n, $total, $msg) {
 function Update-SessionPath {
   $machine = [Environment]::GetEnvironmentVariable('Path', 'Machine')
   $user    = [Environment]::GetEnvironmentVariable('Path', 'User')
-  $env:Path = ($machine, $user, "$env:USERPROFILE\.local\bin", "$env:APPDATA\npm") -join ';'
+  $env:Path = ($machine, $user, "$env:USERPROFILE\.local\bin", "$env:APPDATA\npm", "$env:LOCALAPPDATA\Microsoft\WindowsApps") -join ';'
 }
 
 function Test-CommandExists($name) {
@@ -373,6 +373,63 @@ function Show-Doctor {
   }
 }
 
+# 自举 winget：Node/Git/CC Switch 都靠它。没有就从微软官方 appx 装 App Installer。
+# 每步 try/catch，失败只降级不中断；装完把 WindowsApps 补进当前会话 PATH。
+function Install-Winget {
+  if (Test-CommandExists 'winget') { Add-Result 'winget' '已装' (winget --version); return }
+  Write-Host "  未检测到 winget，尝试自举安装 App Installer ..." -ForegroundColor Yellow
+
+  # 尝试 1：重新注册可能已存在但未注册的 App Installer（最省事，无需联网）
+  try {
+    Get-AppxPackage Microsoft.DesktopAppInstaller -ErrorAction SilentlyContinue | ForEach-Object {
+      Add-AppxPackage -DisableDevelopmentMode -Register "$($_.InstallLocation)\AppXManifest.xml" -ErrorAction Stop
+    }
+    if (Test-CommandExists 'winget') { Add-Result 'winget' '成功' '重新注册已有 App Installer'; return }
+  } catch {}
+
+  # 尝试 2：联网下载 App Installer msixbundle + 依赖并安装
+  $ok = Invoke-WithRetry -Label 'winget' -Action {
+    $tmp = Join-Path $env:TEMP ("winget-" + [System.IO.Path]::GetRandomFileName())
+    New-Item -ItemType Directory -Path $tmp -Force | Out-Null
+
+    # 依赖：VCLibs（Add 失败通常是已装同版本，忽略）
+    try {
+      $vclibs = Join-Path $tmp 'vclibs.appx'
+      Invoke-WebRequest 'https://aka.ms/Microsoft.VCLibs.x64.14.00.Desktop.appx' -OutFile $vclibs -UseBasicParsing -TimeoutSec 120
+      Add-AppxPackage -Path $vclibs -ErrorAction Stop
+    } catch {}
+
+    # 主体 + Xaml 依赖：从 winget-cli 最新 release 取（含 Dependencies.zip）
+    $rel = Invoke-RestMethod 'https://api.github.com/repos/microsoft/winget-cli/releases/latest' -Headers @{ 'User-Agent' = 'setup-windows' } -TimeoutSec 120
+    $bundleUrl = ($rel.assets | Where-Object { $_.name -like '*.msixbundle' } | Select-Object -First 1).browser_download_url
+    $depUrl    = ($rel.assets | Where-Object { $_.name -like '*Dependencies.zip' } | Select-Object -First 1).browser_download_url
+
+    if ($depUrl) {
+      $depZip = Join-Path $tmp 'deps.zip'
+      Invoke-WebRequest $depUrl -OutFile $depZip -UseBasicParsing -TimeoutSec 180
+      $depDir = Join-Path $tmp 'deps'
+      Expand-Archive $depZip -DestinationPath $depDir -Force
+      Get-ChildItem $depDir -Recurse -Filter '*x64*.appx' | ForEach-Object {
+        try { Add-AppxPackage -Path $_.FullName -ErrorAction Stop } catch {}
+      }
+    }
+
+    if (-not $bundleUrl) { throw 'winget-cli release 里没找到 msixbundle' }
+    $bundle = Join-Path $tmp 'appinstaller.msixbundle'
+    Invoke-WebRequest $bundleUrl -OutFile $bundle -UseBasicParsing -TimeoutSec 300
+    Add-AppxPackage -Path $bundle -ErrorAction Stop
+
+    Update-SessionPath
+    Test-CommandExists 'winget'
+  }
+
+  if ($ok) {
+    Add-Result 'winget' '成功' (winget --version)
+  } else {
+    Add-Result 'winget' '失败' '自举失败；可从 Microsoft Store 装“应用安装程序”，或手动 Add-AppxPackage https://aka.ms/getwinget 后重跑本脚本'
+  }
+}
+
 # ===== 主流程 =====
 Write-Host "========================================================"
 Write-Host "  AI 编码 CLI 工具链安装器 (Windows)"
@@ -385,6 +442,11 @@ if ($CheckOnly) { Show-Doctor; return }
 if (-not [Environment]::Is64BitOperatingSystem) {
   Write-Host "警告: 检测到非 64 位系统，部分组件可能不支持。" -ForegroundColor Yellow
 }
+
+# 前置：确保 winget 可用（Node/Git/CC Switch 都依赖它）。不计入 8 步，失败不阻断后续。
+Write-Host ""
+Write-Host "[前置] 确保 winget 可用" -ForegroundColor Cyan
+Install-Winget
 
 $total = 8
 if (-not $SkipNode)     { Write-Step 1 $total '安装 Node.js LTS';   Install-Node }     else { Add-Result 'Node.js' '跳过' '--SkipNode' }
