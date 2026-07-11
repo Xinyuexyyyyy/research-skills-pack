@@ -20,11 +20,14 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 
-# ---- 必须管理员 ----
+# ---- 自动提权：非管理员则弹 UAC 重开管理员窗口再跑 ----
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) {
-  Write-Host "请用【管理员】PowerShell 运行本脚本（开始菜单搜 PowerShell → 右键 以管理员身份运行）。" -ForegroundColor Red
-  exit 1
+  Write-Host "未以管理员运行，正在请求提权（会弹 UAC，点『是』）..." -ForegroundColor Yellow
+  $argList = @('-NoExit','-ExecutionPolicy','Bypass','-File', "`"$PSCommandPath`"")
+  if ($Proxy) { $argList += @('-Proxy', $Proxy) }
+  Start-Process powershell -Verb RunAs -ArgumentList $argList
+  return
 }
 
 # ---- 代理（GitHub 下载关键）----
