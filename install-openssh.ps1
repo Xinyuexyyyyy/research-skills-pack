@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
   在这台 Win 上装 OpenSSH 服务端（绕开慢/不吃代理的 Windows Update，直接从 GitHub 下官方 MSI）。

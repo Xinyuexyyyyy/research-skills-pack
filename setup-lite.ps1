@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
   轻量一键装：只给 Claude Code + CC Switch，外加一小撮零依赖 skill。
