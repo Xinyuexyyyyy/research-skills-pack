@@ -1,8 +1,8 @@
 ﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
-  轻量一键装：只给 Claude Code + CC Switch，外加一小撮零依赖 skill。
-  适合「先跑起来」——不装 Node / Codex / OpenCove / Python 依赖。
+  轻量一键装：Node + Claude Code + CC Switch + 一小撮零依赖 skill。
+  适合「先跑起来」——不含 Codex / OpenCove / ppt 依赖。
 
 .DESCRIPTION
   远程一行（PowerShell，新机推荐）：
@@ -11,27 +11,29 @@
   或下载后本地跑（被执行策略拦住时）：
     powershell -ExecutionPolicy Bypass -File .\setup-lite.ps1
 
-  做三件事，每步独立容错，某步失败不中断其余：
-   1. 装 Claude Code —— 官方 install.ps1，自带运行时，不依赖 Node
-   2. 装 CC Switch   —— winget farion1231.CC-Switch，管理供应商 / 中转
-   3. 装 5 个零依赖 skill 到 ~/.claude/skills/（Claude Code 从这里读）
+  做四件事，每步独立容错，某步失败不中断其余：
+   1. 装 Node.js —— 仅为 Claude Code 走 npm 国内镜像绕墙（npmmirror 下 MSI）
+   2. 装 Claude Code —— npm 淘宝镜像优先（国内不靠代理也能装），官方脚本兜底
+   3. 装 CC Switch —— 官方 MSI 直连，管理供应商 / 中转
+   4. 装 5 个零依赖 skill 到 ~/.claude/skills/（Claude Code 从这里读）
       白名单：task-analyze / task-decompose / closeout / idea-to-research / research
-      全是纯 prompt 或仅用 Python 标准库，无第三方依赖。
 
+  有系统代理会自动用；也可手动 -Proxy http://127.0.0.1:7890。
   只负责“装”，不碰账号登录。装完手动运行 claude 登录、打开 CC Switch 配供应商。
 
+.PARAMETER SkipNode     跳过 Node.js
 .PARAMETER SkipClaude   跳过 Claude Code
 .PARAMETER SkipSwitch   跳过 CC Switch
 .PARAMETER SkipSkills   跳过 skills
+.PARAMETER Proxy        代理地址，不传则自动读 Windows 系统代理
 .PARAMETER CheckOnly    只自检当前装了啥，不安装
 
 .NOTES
-  要求 Windows 10/11 x64、自带 winget（CC Switch 需要）。
-  组件官方安装方式（截至 2026-07）：
-   - Claude Code : irm https://claude.ai/install.ps1 | iex（自带运行时，不依赖 Node）
-   - CC Switch   : winget farion1231.CC-Switch
+  要求 Windows 10/11 x64。CC Switch 走官方 MSI 直连（不依赖 winget）。
+  Claude Code 走 npm 淘宝镜像（registry.npmmirror.com），真机实测国内 7s 装通。
 #>
 param(
+  [switch]$SkipNode,
   [switch]$SkipClaude,
   [switch]$SkipSwitch,
   [switch]$SkipSkills,
@@ -159,23 +161,53 @@ function Install-Winget {
 }
 
 # ===== 1. Claude Code =====
+function Install-NodeDirect {
+  return (Invoke-WithRetry -Label 'Node直连' -Action {
+    $idx = Invoke-RestMethod 'https://nodejs.org/dist/index.json' -TimeoutSec 120
+    $lts = ($idx | Where-Object { $_.lts } | Select-Object -First 1).version   # 形如 v24.18.0
+    if (-not $lts) { throw '取不到 Node LTS 版本号' }
+    # MSI 走 npmmirror 国内镜像（无代理也快）
+    $msi = Save-Download "https://registry.npmmirror.com/-/binary/node/$lts/node-$lts-x64.msi" "node-$lts-x64.msi"
+    if (-not (Install-Msi $msi)) { throw 'msiexec 装 Node 失败' }
+    Update-SessionPath; Test-CommandExists 'node'
+  })
+}
+
+function Install-Node {
+  if (Test-CommandExists 'node') { Add-Result 'Node.js' '已装' (node -v); return }
+  Write-Host "  下载 Node.js LTS MSI（npmmirror 国内镜像）直连安装 ..."
+  if (Install-NodeDirect) { Add-Result 'Node.js' '成功' (node -v) }
+  else { Add-Result 'Node.js' '失败' '直连安装失败；手动 https://nodejs.org/en/download' }
+}
+
 function Install-ClaudeCode {
   if (Test-CommandExists 'claude') {
     Add-Result 'Claude Code' '已装' (claude --version)
     return
   }
-  Write-Host "  运行官方安装脚本 (claude.ai/install.ps1) ..."
-  $ok = Invoke-WithRetry -Label 'Claude Code' -Action {
-    Invoke-RestMethod -Uri 'https://claude.ai/install.ps1' -TimeoutSec 60 | Invoke-Expression
-    Update-SessionPath
-    Test-CommandExists 'claude'
+  $ok = $false
+  # 途径1（国内首选，真机实测最快）：npm 淘宝镜像装。需 Node（本步之前已装）。
+  if (Test-CommandExists 'npm') {
+    Write-Host "  途径1：npm 淘宝镜像装 @anthropic-ai/claude-code ..."
+    $ok = Invoke-WithRetry -Label 'Claude Code(npm镜像)' -Max 2 -Action {
+      npm install -g @anthropic-ai/claude-code --registry=https://registry.npmmirror.com 2>&1 | Out-Null
+      Update-SessionPath; Test-CommandExists 'claude'
+    }
+  }
+  # 途径2（兜底）：官方安装脚本，走代理时可用
+  if (-not $ok) {
+    Write-Host "  途径2：官方安装脚本 (claude.ai/install.ps1) ..." -ForegroundColor DarkYellow
+    $ok = Invoke-WithRetry -Label 'Claude Code(官方)' -Max 2 -Action {
+      Invoke-RestMethod -Uri 'https://claude.ai/install.ps1' -TimeoutSec 90 | Invoke-Expression
+      Update-SessionPath; Test-CommandExists 'claude'
+    }
   }
   if ($ok) {
     Add-Result 'Claude Code' '成功' (claude --version)
   } elseif (Test-Path "$env:USERPROFILE\.local\bin\claude.exe") {
     Add-Result 'Claude Code' '需重开终端' '已安装，PATH 未刷新'
   } else {
-    Add-Result 'Claude Code' '失败' '下载/安装多次失败；可手动 irm https://claude.ai/install.ps1 | iex'
+    Add-Result 'Claude Code' '失败' 'npm镜像+官方均失败（见上方报错）；手动: npm i -g @anthropic-ai/claude-code --registry=https://registry.npmmirror.com'
   }
 }
 
@@ -277,6 +309,9 @@ function Install-Skills {
 # ===== CheckOnly：只报现状 =====
 function Invoke-CheckOnly {
   Write-Host "======== 只自检，不安装 ========" -ForegroundColor Cyan
+  # Node
+  if (Test-CommandExists 'node') { Add-Result 'Node.js' '已装' (node -v) }
+  else { Add-Result 'Node.js' '未装' 'Claude Code 绕墙路线所需' }
   # Claude
   if (Test-CommandExists 'claude') {
     Add-Result 'Claude Code' '已装' (claude --version)
@@ -303,19 +338,22 @@ function Invoke-CheckOnly {
 
 # ============ 主流程 ============
 Write-Host "============================================================"
-Write-Host "  轻量装：Claude Code + CC Switch + 5 个零依赖 skill"
+Write-Host "  轻量装：Node + Claude Code + CC Switch + 5 个零依赖 skill"
+Write-Host "  (Node 仅为 Claude Code 走 npm 国内镜像绕墙；不含 Codex/OpenCove)"
 Write-Host "============================================================"
 
 if ($CheckOnly) {
   Invoke-CheckOnly
 } else {
   $steps = @()
+  if (-not $SkipNode)   { $steps += 'node' }
   if (-not $SkipClaude) { $steps += 'claude' }
   if (-not $SkipSwitch) { $steps += 'switch' }
   if (-not $SkipSkills) { $steps += 'skills' }
   $total = $steps.Count
   $i = 0
 
+  if (-not $SkipNode)   { $i++; Write-Step $i $total '安装 Node.js（Claude Code 绕墙所需）'; Install-Node }
   if (-not $SkipClaude) { $i++; Write-Step $i $total '安装 Claude Code'; Install-ClaudeCode }
   if (-not $SkipSwitch) { $i++; Write-Step $i $total '安装 CC Switch';  Install-CCSwitch }
   if (-not $SkipSkills) { $i++; Write-Step $i $total '安装 skills';     Install-Skills }
