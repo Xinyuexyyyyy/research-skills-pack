@@ -40,10 +40,33 @@ param(
   [switch]$SkipOpenCove,
   [switch]$SkipSkills,
   [switch]$SkipPptDeps,
+  [string]$Proxy,
   [switch]$CheckOnly
 )
 
 $ErrorActionPreference = 'Stop'
+
+# ===== 代理支持（国内网络关键）=====
+# 优先用 -Proxy 传入；没传就自动读 Windows 系统代理（客户端开了“系统代理”即可）。
+# 让 .NET(Invoke-WebRequest/RestMethod)、环境变量(curl)、npm 全部走同一个代理。
+function Set-ProxyEnv($p) {
+  if (-not $p) { return }
+  if ($p -notmatch '^\w+://') { $p = "http://$p" }   # 只给了 127.0.0.1:7890 就补 http://
+  $env:HTTP_PROXY = $p; $env:HTTPS_PROXY = $p
+  $env:http_proxy = $p; $env:https_proxy = $p
+  try { [System.Net.WebRequest]::DefaultWebProxy = New-Object System.Net.WebProxy($p, $true) } catch {}
+  Write-Host "  已启用代理：$p" -ForegroundColor Green
+  $script:ProxyUrl = $p
+}
+if (-not $Proxy) {
+  try {
+    $reg = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings' -ErrorAction SilentlyContinue
+    if ($reg.ProxyEnable -eq 1 -and $reg.ProxyServer) {
+      $Proxy = ($reg.ProxyServer -split ';' | Where-Object { $_ -notmatch '=' -or $_ -match 'http=' } | Select-Object -First 1) -replace '^http=',''
+    }
+  } catch {}
+}
+Set-ProxyEnv $Proxy
 
 # 安装结果汇总（最后统一打印）
 $script:Results = [System.Collections.Generic.List[object]]::new()
@@ -189,18 +212,34 @@ function Install-ClaudeCode {
     Add-Result 'Claude Code' '已装' (claude --version)
     return
   }
-  Write-Host "  运行官方安装脚本 (claude.ai/install.ps1) ..."
-  $ok = Invoke-WithRetry -Label 'Claude Code' -Action {
-    Invoke-RestMethod -Uri 'https://claude.ai/install.ps1' -TimeoutSec 60 | Invoke-Expression
+  # 途径 1：官方安装脚本（有代理时通常可用；每次失败会打印报错）
+  Write-Host "  途径1：官方安装脚本 (claude.ai/install.ps1) ..."
+  $ok = Invoke-WithRetry -Label 'Claude Code(官方)' -Max 2 -Action {
+    Invoke-RestMethod -Uri 'https://claude.ai/install.ps1' -TimeoutSec 90 | Invoke-Expression
     Update-SessionPath
     Test-CommandExists 'claude'
+  }
+  # 途径 2：npm 装（默认源→淘宝镜像），国内更稳，需已装 Node/npm（本步在 Node 之后）
+  if (-not $ok -and (Test-CommandExists 'npm')) {
+    Write-Host "  途径2：npm 全局安装 @anthropic-ai/claude-code ..." -ForegroundColor DarkYellow
+    $ok = Invoke-WithRetry -Label 'Claude Code(npm)' -Max 2 -Action {
+      npm install -g @anthropic-ai/claude-code 2>&1 | Out-Null
+      Update-SessionPath; Test-CommandExists 'claude'
+    }
+    if (-not $ok) {
+      Write-Host "  途径2b：改用淘宝镜像 registry.npmmirror.com ..." -ForegroundColor DarkYellow
+      $ok = Invoke-WithRetry -Label 'Claude Code(npm镜像)' -Max 2 -Action {
+        npm install -g @anthropic-ai/claude-code --registry=https://registry.npmmirror.com 2>&1 | Out-Null
+        Update-SessionPath; Test-CommandExists 'claude'
+      }
+    }
   }
   if ($ok) {
     Add-Result 'Claude Code' '成功' (claude --version)
   } elseif (Test-Path "$env:USERPROFILE\.local\bin\claude.exe") {
     Add-Result 'Claude Code' '需重开终端' '已安装，PATH 未刷新'
   } else {
-    Add-Result 'Claude Code' '失败' '下载/安装多次失败；可手动 irm https://claude.ai/install.ps1 | iex'
+    Add-Result 'Claude Code' '失败' '官方脚本+npm 均失败（见上方各次报错）；手动: npm i -g @anthropic-ai/claude-code'
   }
 }
 
