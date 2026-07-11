@@ -43,6 +43,22 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# ===== 自动提权：装 Node/CC Switch 的 MSI 需要管理员；非管理员则弹 UAC 重开 =====
+if (-not $CheckOnly) {
+  $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+  if (-not $isAdmin -and $PSCommandPath) {
+    Write-Host "未以管理员运行，正在请求提权（会弹 UAC，点『是』）..." -ForegroundColor Yellow
+    $argList = @('-NoExit','-ExecutionPolicy','Bypass','-File', "`"$PSCommandPath`"")
+    if ($SkipNode)   { $argList += '-SkipNode' }
+    if ($SkipClaude) { $argList += '-SkipClaude' }
+    if ($SkipSwitch) { $argList += '-SkipSwitch' }
+    if ($SkipSkills) { $argList += '-SkipSkills' }
+    if ($Proxy)      { $argList += @('-Proxy', $Proxy) }
+    Start-Process powershell -Verb RunAs -ArgumentList $argList
+    return
+  }
+}
+
 # ===== 代理支持（国内网络关键）=====
 # 未传 -Proxy 则自动读 Windows 系统代理；应用到 .NET / 环境变量。
 if (-not $Proxy) {
